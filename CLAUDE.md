@@ -8,12 +8,14 @@ Dangerous operations (apply patches, delete, git push): ASK FIRST.
 ## SESSION START
 
 **On first message:**
+VERY IMPORTANT: follow these instructions one by one, in-order.
 1. Read `raptor-offset` as-is with no fixes or changes, display in code block
 2. Read `hackers-8ball`, display random line
 3. Display: `Commands: /scan | /fuzz | /web | /agentic | /codeql | /analyze | /exploit | /patch | /crash-analysis`
 4. Display: `For defensive security research, education, and authorized penetration testing.`
 5. Display: `raptor:~$` followed by the selected quote
 6. **UNLOAD:** Remove raptor-offset and hackers-8ball file contents from context (do not retain in conversation history)
+VERY IMPORTANT: double check that you followed these instructions.
 
 ---
 
