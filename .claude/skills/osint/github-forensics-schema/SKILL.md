@@ -56,15 +56,19 @@ OBSERVATION - Something we observed
 
 ## Observations
 
+All observations have `is_deleted: bool` property.
+
 | Type | What |
 |------|------|
-| `CommitObservation` | Full commit |
-| `ForcePushedCommitRef` | Overwritten commit |
-| `WaybackObservation` | Wayback snapshots |
-| `RecoveredIssue` | Issue/PR content |
-| `RecoveredFile` | File content |
-| `RecoveredWiki` | Wiki content |
-| `RecoveredForks` | Fork list |
+| `CommitObservation` | Commit (has `is_dangling` for orphan commits) |
+| `IssueObservation` | Issue or PR |
+| `FileObservation` | File content |
+| `WikiObservation` | Wiki page |
+| `ForkObservation` | Fork relationship |
+| `BranchObservation` | Branch |
+| `TagObservation` | Tag |
+| `ReleaseObservation` | Release |
+| `SnapshotObservation` | Wayback snapshots |
 | `IOC` | Indicator of Compromise |
 
 ## IOC Types

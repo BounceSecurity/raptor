@@ -3,10 +3,10 @@ GitHub Forensics Verifiable Evidence Schema
 
 Two evidence types:
 
-1. Event - Something that happened (from GH Archive, git log)
+1. Event - Something that happened (from GH Archive, git)
    when, who, what
 
-2. Observation - Something we observed (from GitHub, Wayback, security blogs)
+2. Observation - Something we observed (from GitHub, Wayback, security vendors)
    Original: when, who, what (if known)
    Observer: when observed, who observed, what they found
 """
@@ -28,11 +28,11 @@ from pydantic import BaseModel, Field, HttpUrl
 class EvidenceSource(str, Enum):
     """Where evidence was obtained."""
 
-    GHARCHIVE = "gharchive"  # GH Archive via BigQuery
-    GIT = "git"  # Local git log/show
-    GITHUB = "github"  # GitHub API or web
-    WAYBACK = "wayback"  # Internet Archive
-    SECURITY_VENDOR = "security_vendor"  # Security blogs/reports
+    GHARCHIVE = "gharchive"
+    GIT = "git"
+    GITHUB = "github"
+    WAYBACK = "wayback"
+    SECURITY_VENDOR = "security_vendor"
 
 
 class EventType(str, Enum):
@@ -79,12 +79,12 @@ class WorkflowConclusion(str, Enum):
 
 
 class IOCType(str, Enum):
-    """Indicator types - opinionated, no 'other'."""
+    """Indicator types."""
 
     COMMIT_SHA = "commit_sha"
     FILE_PATH = "file_path"
-    FILE_HASH = "file_hash"  # SHA256 of file content
-    CODE_SNIPPET = "code_snippet"  # Malicious code pattern
+    FILE_HASH = "file_hash"
+    CODE_SNIPPET = "code_snippet"
     EMAIL = "email"
     USERNAME = "username"
     REPOSITORY = "repository"
@@ -141,12 +141,11 @@ class Event(BaseModel):
     """Something that happened."""
 
     evidence_id: str
-    when: datetime  # When it happened
-    who: GitHubActor  # Who did it
-    what: str  # What they did
+    when: datetime
+    who: GitHubActor
+    what: str
     repository: GitHubRepository
     verification: VerificationInfo
-    notes: str | None = None
 
 
 class CommitInPush(BaseModel):
@@ -284,43 +283,39 @@ AnyEvent = (
 # =============================================================================
 # OBSERVATION - Something we observed
 #
-# Two sets of when/who/what:
-# - Original: when/who/what of the actual event (if known)
-# - Observer: when observed, who observed, what they found
+# Two perspectives:
+# - Original event (if known): when, who, what
+# - Observer: when observed, by whom, what found
 #
 # Sources: GitHub, Wayback, security vendors
 # =============================================================================
 
 
 class Observation(BaseModel):
-    """
-    Something we observed.
-
-    Has two perspectives:
-    - Original event (if known): when it happened, who did it, what they did
-    - Observer: when we found it, who found it, what we found
-    """
+    """Something we observed."""
 
     evidence_id: str
 
     # Original event (if known)
-    original_when: datetime | None = None  # When it actually happened
-    original_who: GitHubActor | None = None  # Who actually did it
-    original_what: str | None = None  # What actually happened
+    original_when: datetime | None = None
+    original_who: GitHubActor | None = None
+    original_what: str | None = None
 
     # Observer
-    observed_when: datetime  # When we/they found it
-    observed_by: EvidenceSource  # Who observed (wayback, vendor, us)
-    observed_what: str  # What was observed/found
+    observed_when: datetime
+    observed_by: EvidenceSource
+    observed_what: str
 
     # Context
     repository: GitHubRepository | None = None
     verification: VerificationInfo
-    notes: str | None = None
+
+    # State
+    is_deleted: bool = False  # No longer exists at source
 
 
 # -----------------------------------------------------------------------------
-# Commit observations
+# Atomic observations
 # -----------------------------------------------------------------------------
 
 
@@ -330,7 +325,7 @@ class CommitAuthor(BaseModel):
     date: datetime
 
 
-class CommitFileChange(BaseModel):
+class FileChange(BaseModel):
     filename: str
     status: Literal["added", "modified", "removed", "renamed"]
     additions: int = 0
@@ -339,7 +334,7 @@ class CommitFileChange(BaseModel):
 
 
 class CommitObservation(Observation):
-    """Full commit details."""
+    """Commit."""
 
     observation_type: Literal["commit"] = "commit"
     sha: Annotated[str, Field(min_length=40, max_length=40)]
@@ -347,24 +342,70 @@ class CommitObservation(Observation):
     author: CommitAuthor
     committer: CommitAuthor
     parents: list[str] = Field(default_factory=list)
-    files: list[CommitFileChange] = Field(default_factory=list)
-    is_dangling: bool = False
+    files: list[FileChange] = Field(default_factory=list)
+    is_dangling: bool = False  # Not on any branch
 
 
-class ForcePushedCommitRef(Observation):
-    """Reference to commit overwritten by force push."""
+class IssueObservation(Observation):
+    """Issue or PR."""
 
-    observation_type: Literal["force_pushed_commit"] = "force_pushed_commit"
-    deleted_sha: str
-    replaced_by_sha: str
-    branch: str
-    pusher: GitHubActor
-    recovered_commit: CommitObservation | None = None
+    observation_type: Literal["issue"] = "issue"
+    issue_number: int
+    is_pull_request: bool = False
+    title: str | None = None
+    body: str | None = None
+    state: Literal["open", "closed", "merged"] | None = None
 
 
-# -----------------------------------------------------------------------------
-# Wayback observations
-# -----------------------------------------------------------------------------
+class FileObservation(Observation):
+    """File content."""
+
+    observation_type: Literal["file"] = "file"
+    file_path: str
+    branch: str | None = None
+    content: str
+    content_hash: str | None = None  # SHA256
+
+
+class WikiObservation(Observation):
+    """Wiki page."""
+
+    observation_type: Literal["wiki"] = "wiki"
+    page_name: str
+    content: str
+
+
+class ForkObservation(Observation):
+    """Fork relationship."""
+
+    observation_type: Literal["fork"] = "fork"
+    fork_full_name: str
+    parent_full_name: str
+
+
+class BranchObservation(Observation):
+    """Branch."""
+
+    observation_type: Literal["branch"] = "branch"
+    branch_name: str
+    head_sha: str | None = None
+
+
+class TagObservation(Observation):
+    """Tag."""
+
+    observation_type: Literal["tag"] = "tag"
+    tag_name: str
+    target_sha: str | None = None
+
+
+class ReleaseObservation(Observation):
+    """Release."""
+
+    observation_type: Literal["release"] = "release"
+    tag_name: str
+    release_name: str | None = None
+    release_body: str | None = None
 
 
 class WaybackSnapshot(BaseModel):
@@ -377,66 +418,22 @@ class WaybackSnapshot(BaseModel):
     status_code: int = 200
 
 
-class WaybackObservation(Observation):
+class SnapshotObservation(Observation):
     """Wayback snapshots for a URL."""
 
-    observation_type: Literal["wayback"] = "wayback"
+    observation_type: Literal["snapshot"] = "snapshot"
     original_url: HttpUrl
     snapshots: list[WaybackSnapshot]
     total_snapshots: int
 
 
-class RecoveredIssue(Observation):
-    """Issue/PR recovered from Wayback or GH Archive."""
-
-    observation_type: Literal["recovered_issue"] = "recovered_issue"
-    issue_number: int
-    is_pull_request: bool = False
-    title: str | None = None
-    body: str | None = None
-    state: Literal["open", "closed", "merged", "unknown"] | None = None
-    source_snapshot: WaybackSnapshot | None = None
-
-
-class RecoveredFile(Observation):
-    """File content recovered from Wayback."""
-
-    observation_type: Literal["recovered_file"] = "recovered_file"
-    file_path: str
-    content: str
-    content_hash: str | None = None  # SHA256
-    source_snapshot: WaybackSnapshot
-
-
-class RecoveredWiki(Observation):
-    """Wiki page recovered from Wayback."""
-
-    observation_type: Literal["recovered_wiki"] = "recovered_wiki"
-    page_name: str
-    content: str
-    source_snapshot: WaybackSnapshot
-
-
-class RecoveredForks(Observation):
-    """Fork list recovered from Wayback."""
-
-    observation_type: Literal["recovered_forks"] = "recovered_forks"
-    forks: list[str]
-    source_snapshot: WaybackSnapshot
-
-
 # -----------------------------------------------------------------------------
-# IOC - Indicator of Compromise (subtype of Observation)
+# IOC - Indicator of Compromise
 # -----------------------------------------------------------------------------
 
 
 class IOC(Observation):
-    """
-    Indicator of Compromise.
-
-    Subtype of Observation. original_* fields capture the actual
-    malicious event if known, observed_* captures discovery.
-    """
+    """Indicator of Compromise."""
 
     observation_type: Literal["ioc"] = "ioc"
     ioc_type: IOCType
@@ -444,17 +441,19 @@ class IOC(Observation):
     confidence: Literal["confirmed", "high", "medium", "low"] = "medium"
     first_seen: datetime | None = None
     last_seen: datetime | None = None
-    extracted_from: str | None = None  # Evidence ID if extracted
+    extracted_from: str | None = None  # Evidence ID
 
 
 AnyObservation = (
     CommitObservation
-    | ForcePushedCommitRef
-    | WaybackObservation
-    | RecoveredIssue
-    | RecoveredFile
-    | RecoveredWiki
-    | RecoveredForks
+    | IssueObservation
+    | FileObservation
+    | WikiObservation
+    | ForkObservation
+    | BranchObservation
+    | TagObservation
+    | ReleaseObservation
+    | SnapshotObservation
     | IOC
 )
 
