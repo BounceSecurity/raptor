@@ -43,7 +43,7 @@ from ._schema import (
     VerificationInfo,
     WaybackSnapshot,
 )
-from ._clients import GHArchiveClient, GitHubClient, WaybackClient
+from ._clients import GHArchiveClient, GitClient, GitHubClient, WaybackClient
 from ._parsers import parse_gharchive_event
 
 
@@ -73,12 +73,15 @@ class EvidenceFactory:
         self,
         gharchive_credentials: str | None = None,
         gharchive_project: str | None = None,
+        git_repo_path: str | None = None,
     ):
         self._github_client: GitHubClient | None = None
         self._wayback_client: WaybackClient | None = None
         self._gharchive_client: GHArchiveClient | None = None
+        self._git_client: GitClient | None = None
         self._gharchive_credentials = gharchive_credentials
         self._gharchive_project = gharchive_project
+        self._git_repo_path = git_repo_path
 
     @property
     def github(self) -> GitHubClient:
@@ -100,6 +103,12 @@ class EvidenceFactory:
                 project_id=self._gharchive_project,
             )
         return self._gharchive_client
+
+    @property
+    def git(self) -> GitClient:
+        if self._git_client is None:
+            self._git_client = GitClient(repo_path=self._git_repo_path or ".")
+        return self._git_client
 
     # =========================================================================
     # GITHUB API METHODS
@@ -357,6 +366,67 @@ class EvidenceFactory:
             original_url=HttpUrl(url),
             snapshots=snapshots,
             total_snapshots=len(snapshots),
+        )
+
+    # =========================================================================
+    # LOCAL GIT METHOD
+    # =========================================================================
+
+    def local_commit(self, sha: str, repo_path: str | None = None) -> CommitObservation:
+        """Create CommitObservation from a local git repository.
+
+        Args:
+            sha: Commit SHA or ref (e.g., "HEAD", "main", full SHA)
+            repo_path: Path to git repository (uses factory's git_repo_path if not specified)
+
+        Returns:
+            CommitObservation with data from local git
+        """
+        if repo_path:
+            client = GitClient(repo_path=repo_path)
+        else:
+            client = self.git
+
+        data = client.get_commit(sha)
+        files_data = client.get_commit_files(data["sha"])
+        now = datetime.now(timezone.utc)
+
+        files = [
+            FileChange(
+                filename=f["filename"],
+                status=f.get("status", "modified"),
+                additions=0,
+                deletions=0,
+            )
+            for f in files_data
+        ]
+
+        return CommitObservation(
+            evidence_id=generate_evidence_id("commit-git", data["sha"]),
+            original_when=parse_datetime_strict(data.get("author_date")),
+            original_who=GitHubActor(login=data.get("author_name", "unknown")),
+            original_what=data.get("message", "").split("\n")[0],
+            observed_when=now,
+            observed_by=EvidenceSource.GIT,
+            observed_what=f"Commit {data['sha'][:8]} observed from local git",
+            verification=VerificationInfo(
+                source=EvidenceSource.GIT,
+            ),
+            sha=data["sha"],
+            message=data.get("message", ""),
+            author=CommitAuthor(
+                name=data.get("author_name", ""),
+                email=data.get("author_email", ""),
+                date=parse_datetime_strict(data.get("author_date")) or now,
+            ),
+            committer=CommitAuthor(
+                name=data.get("committer_name", ""),
+                email=data.get("committer_email", ""),
+                date=parse_datetime_strict(data.get("committer_date")) or now,
+            ),
+            parents=data.get("parents", []),
+            files=files,
+            is_dangling=False,
         )
 
     # =========================================================================

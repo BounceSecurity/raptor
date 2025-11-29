@@ -61,6 +61,7 @@ Creates verified evidence objects from public sources.
 | `factory.tag(owner, repo, tag_name)` | GitHub API | TagObservation |
 | `factory.release(owner, repo, tag_name)` | GitHub API | ReleaseObservation |
 | `factory.forks(owner, repo)` | GitHub API | list[ForkObservation] |
+| `factory.local_commit(sha, repo_path)` | Local Git | CommitObservation |
 | `factory.wayback_snapshots(url)` | Wayback | SnapshotObservation |
 | `factory.events_from_gharchive(timestamp, repo)` | BigQuery | list[Event] |
 | `factory.ioc(ioc_type, value, source_url)` | Vendor URL | IOC |

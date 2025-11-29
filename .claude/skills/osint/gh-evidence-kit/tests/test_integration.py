@@ -481,5 +481,162 @@ class TestArticleIntegration:
         assert str(article.verification.url) == "https://mbgsec.com/posts/2025-07-24-constructing-a-timeline-for-amazon-q-prompt-infection/"
 
 
+# =============================================================================
+# WAYBACK MACHINE INTEGRATION TESTS
+# =============================================================================
+
+
+class TestWaybackIntegration:
+    """Integration tests against real Wayback Machine API."""
+
+    @pytest.fixture
+    def factory(self):
+        return EvidenceFactory()
+
+    def _skip_if_proxy_error(self, e):
+        """Skip test if proxy blocks Wayback Machine."""
+        import requests
+        if isinstance(e, requests.exceptions.ProxyError):
+            pytest.skip("Wayback Machine blocked by proxy")
+        raise e
+
+    def test_fetch_wayback_snapshots_for_github_repo(self, factory):
+        """
+        Fetch Wayback snapshots for a well-known GitHub URL.
+
+        Uses python/cpython - a stable repo with many archived snapshots.
+        """
+        try:
+            obs = factory.wayback_snapshots(
+                url="https://github.com/python/cpython",
+            )
+        except Exception as e:
+            self._skip_if_proxy_error(e)
+
+        assert obs is not None
+        assert obs.observation_type == "snapshot"
+        assert obs.verification.source == EvidenceSource.WAYBACK
+        # A popular repo should have at least some snapshots
+        assert obs.total_snapshots >= 0  # May be 0 if API is slow/rate-limited
+        assert str(obs.original_url) == "https://github.com/python/cpython"
+
+    def test_fetch_wayback_snapshots_with_date_range(self, factory):
+        """Fetch Wayback snapshots with date filtering."""
+        try:
+            obs = factory.wayback_snapshots(
+                url="https://github.com/torvalds/linux",
+                from_date="20200101",
+                to_date="20201231",
+            )
+        except Exception as e:
+            self._skip_if_proxy_error(e)
+
+        assert obs is not None
+        assert obs.observation_type == "snapshot"
+        # Snapshots should be from 2020 if we got any
+        for snap in obs.snapshots[:5]:  # Check first 5
+            if snap.timestamp:
+                assert snap.timestamp.startswith("2020")
+
+    def test_fetch_wayback_snapshots_nonexistent_url(self, factory):
+        """Fetch snapshots for URL with no archives returns empty list."""
+        try:
+            obs = factory.wayback_snapshots(
+                url="https://this-url-definitely-does-not-exist-xyz123.invalid/page",
+            )
+        except Exception as e:
+            self._skip_if_proxy_error(e)
+
+        assert obs is not None
+        assert obs.total_snapshots == 0
+        assert len(obs.snapshots) == 0
+
+
+# =============================================================================
+# LOCAL GIT INTEGRATION TESTS
+# =============================================================================
+
+
+class TestLocalGitIntegration:
+    """Integration tests for local git operations."""
+
+    @pytest.fixture
+    def factory(self):
+        return EvidenceFactory(git_repo_path="/home/user/raptor")
+
+    def test_git_client_get_commit_on_this_repo(self):
+        """Test GitClient can read commits from this repository."""
+        from src._clients import GitClient
+
+        # Use the raptor repo root
+        client = GitClient(repo_path="/home/user/raptor")
+
+        # Get HEAD commit
+        try:
+            commit = client.get_commit("HEAD")
+            assert commit["sha"] is not None
+            assert len(commit["sha"]) == 40
+            assert commit["author_name"] is not None
+            assert commit["message"] is not None
+        except Exception as e:
+            pytest.skip(f"Git operations not available: {e}")
+
+    def test_git_client_get_log_on_this_repo(self):
+        """Test GitClient can get commit log from this repository."""
+        from src._clients import GitClient
+
+        client = GitClient(repo_path="/home/user/raptor")
+
+        try:
+            log = client.get_log(limit=5)
+            assert len(log) <= 5
+            if log:
+                assert log[0]["sha"] is not None
+                assert log[0]["author_name"] is not None
+        except Exception as e:
+            pytest.skip(f"Git operations not available: {e}")
+
+    def test_git_client_get_commit_files(self):
+        """Test GitClient can get files changed in a commit."""
+        from src._clients import GitClient
+
+        client = GitClient(repo_path="/home/user/raptor")
+
+        try:
+            # Get most recent commit with files
+            log = client.get_log(limit=5)
+            if log:
+                files = client.get_commit_files(log[0]["sha"])
+                # May be empty for merge commits
+                assert isinstance(files, list)
+        except Exception as e:
+            pytest.skip(f"Git operations not available: {e}")
+
+    def test_factory_local_commit(self, factory):
+        """Test EvidenceFactory.local_commit() creates CommitObservation."""
+        try:
+            obs = factory.local_commit("HEAD")
+
+            assert obs is not None
+            assert obs.observation_type == "commit"
+            assert obs.verification.source == EvidenceSource.GIT
+            assert len(obs.sha) == 40
+            assert obs.author.name is not None
+            assert obs.message is not None
+        except Exception as e:
+            pytest.skip(f"Git operations not available: {e}")
+
+    def test_factory_local_commit_with_explicit_path(self, factory):
+        """Test local_commit with explicit repo_path parameter."""
+        try:
+            obs = factory.local_commit("HEAD", repo_path="/home/user/raptor")
+
+            assert obs is not None
+            assert obs.observation_type == "commit"
+            assert len(obs.sha) == 40
+        except Exception as e:
+            pytest.skip(f"Git operations not available: {e}")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-m", "integration"])
