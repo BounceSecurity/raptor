@@ -59,17 +59,7 @@ class TestEvidenceFactoryContract:
         assert hasattr(factory, 'article')
         assert hasattr(factory, 'ioc')
 
-    def test_schema_classes_not_importable(self):
-        """Schema classes cannot be imported from public API."""
-        import src
-
-        # Data classes should NOT be directly accessible
-        assert not hasattr(src, 'CommitObservation')
-        assert not hasattr(src, 'IssueEvent')
-        assert not hasattr(src, 'PushEvent')
-        assert not hasattr(src, 'IssueObservation')
-
-    def test_create_functions_not_importable(self):
+    def test_internal_functions_not_exposed(self):
         """Internal create_* functions cannot be imported from public API."""
         import src
 
@@ -79,11 +69,11 @@ class TestEvidenceFactoryContract:
         assert not hasattr(src, 'create_ioc')
         assert not hasattr(src, 'create_article_observation')
 
-    def test_only_safe_imports_available(self):
-        """Only safe items are importable from public API."""
+    def test_public_api_exports(self):
+        """Core API is importable from public module."""
         import src
 
-        # Factory - the ONLY creation mechanism
+        # Factory - the primary creation mechanism
         assert hasattr(src, 'EvidenceFactory')
 
         # Deserialization - for loading previously verified evidence
@@ -95,15 +85,20 @@ class TestEvidenceFactoryContract:
         assert hasattr(src, 'IssueAction')
         assert hasattr(src, 'RefType')
 
-    def test_types_module_provides_type_hints(self):
-        """Types module provides classes for type hints (not instantiation enforcement)."""
-        from src.types import IssueEvent, CommitObservation
+        # Schema classes - for type hints and deserialization
+        assert hasattr(src, 'CommitObservation')
+        assert hasattr(src, 'IssueEvent')
+        assert hasattr(src, 'PushEvent')
 
-        # These classes are available for type hints
-        # Note: Direct instantiation is allowed for deserialization use cases
-        # The factory pattern is enforced by convention, not runtime checks
+    def test_schema_classes_available_for_type_hints(self):
+        """Schema classes are importable for type hints."""
+        from src import IssueEvent, CommitObservation, PushEvent
+
+        # Classes are available for type annotations
+        # Factory pattern is enforced by convention, not runtime checks
         assert IssueEvent is not None
         assert CommitObservation is not None
+        assert PushEvent is not None
 
 
 # =============================================================================
@@ -182,7 +177,6 @@ class TestJSONContract:
 # These tests document the expected structure of real API data.
 # They load fixtures and verify they match expected format.
 # =============================================================================
-
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 

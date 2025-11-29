@@ -17,10 +17,6 @@ def generate_evidence_id(prefix: str, *parts: str) -> str:
     Creates a unique ID by hashing the parts and prefixing with the type.
     Same inputs always produce the same ID (idempotent).
 
-    Args:
-        prefix: Type prefix (e.g., "push", "commit", "ioc")
-        *parts: Components to hash (e.g., repo name, sha, timestamp)
-
     Returns:
         ID in format: "{prefix}-{12-char-hash}"
     """
@@ -29,79 +25,71 @@ def generate_evidence_id(prefix: str, *parts: str) -> str:
     return f"{prefix}-{hash_val}"
 
 
+# Common datetime formats to try
+_DATETIME_FORMATS = [
+    "%Y-%m-%dT%H:%M:%SZ",
+    "%Y-%m-%dT%H:%M:%S%z",
+    "%Y-%m-%d %H:%M:%S %Z",
+    "%Y-%m-%d %H:%M:%S",
+]
+
+
+def _try_parse_datetime(dt_str: str) -> datetime | None:
+    """Attempt to parse datetime string. Returns None if all formats fail."""
+    # Handle Z suffix for ISO format
+    if dt_str.endswith("Z"):
+        try:
+            return datetime.fromisoformat(dt_str[:-1] + "+00:00")
+        except ValueError:
+            pass
+
+    # Try fromisoformat first (handles most ISO formats)
+    try:
+        return datetime.fromisoformat(dt_str)
+    except ValueError:
+        pass
+
+    # Fall back to strptime for edge cases
+    for fmt in _DATETIME_FORMATS:
+        try:
+            return datetime.strptime(dt_str, fmt).replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+
+    return None
+
+
 def parse_datetime_lenient(dt_str: Any) -> datetime:
-    """Parse datetime from various formats, with fallback to now.
+    """Parse datetime with fallback to now.
 
     Lenient parsing for GH Archive data where dates might be malformed.
-    Returns current time if parsing fails.
-
-    Args:
-        dt_str: Datetime as string, datetime object, or None
-
-    Returns:
-        Parsed datetime (always with UTC timezone)
+    Returns current UTC time if parsing fails.
     """
     if dt_str is None:
         return datetime.now(timezone.utc)
     if isinstance(dt_str, datetime):
         return dt_str
-
     if isinstance(dt_str, str):
-        # ISO format with Z
-        if dt_str.endswith("Z"):
-            dt_str = dt_str[:-1] + "+00:00"
-        try:
-            return datetime.fromisoformat(dt_str)
-        except ValueError:
-            pass
-
-        # Try common formats
-        formats = [
-            "%Y-%m-%dT%H:%M:%SZ",
-            "%Y-%m-%dT%H:%M:%S%z",
-            "%Y-%m-%d %H:%M:%S %Z",
-            "%Y-%m-%d %H:%M:%S",
-        ]
-        for fmt in formats:
-            try:
-                return datetime.strptime(dt_str, fmt).replace(tzinfo=timezone.utc)
-            except ValueError:
-                continue
-
+        result = _try_parse_datetime(dt_str)
+        if result:
+            return result
     return datetime.now(timezone.utc)
 
 
 def parse_datetime_strict(dt_str: str | datetime | None) -> datetime | None:
-    """Parse datetime from various formats, strict mode.
+    """Parse datetime, strict mode.
 
     For verified data sources where dates should be valid.
-    Raises ValueError on invalid format, returns None for None input.
-
-    Args:
-        dt_str: Datetime as string, datetime object, or None
-
-    Returns:
-        Parsed datetime or None
-
-    Raises:
-        ValueError: If date string cannot be parsed
+    Returns None for None input, raises ValueError on invalid format.
     """
     if dt_str is None:
         return None
     if isinstance(dt_str, datetime):
         return dt_str
 
-    formats = [
-        "%Y-%m-%dT%H:%M:%SZ",
-        "%Y-%m-%dT%H:%M:%S%z",
-        "%Y-%m-%d %H:%M:%S %Z",
-        "%Y-%m-%d %H:%M:%S",
-    ]
-    for fmt in formats:
-        try:
-            return datetime.strptime(dt_str, fmt).replace(tzinfo=timezone.utc)
-        except ValueError:
-            continue
+    result = _try_parse_datetime(dt_str)
+    if result:
+        return result
     raise ValueError(f"Unable to parse datetime: {dt_str}")
 
 

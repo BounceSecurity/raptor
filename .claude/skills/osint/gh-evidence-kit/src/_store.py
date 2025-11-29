@@ -11,64 +11,37 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable, Iterator, Sequence
 
-from ._schema import (
-    AnyEvidence,
-    AnyEvent,
-    AnyObservation,
-    EvidenceSource,
-)
+from ._schema import AnyEvidence, AnyEvent, AnyObservation, EvidenceSource
 
 
 class EvidenceStore:
     """
     A simple store for managing collections of evidence.
 
-    Features:
-    - Save evidence to JSON file
-    - Load evidence from JSON file
-    - Query by type, source, date range
-    - Iterate over evidence
-
     Example:
         store = EvidenceStore()
-
-        # Add evidence
         store.add(commit_observation)
-        store.add(issue_event)
-
-        # Save to file
         store.save("evidence.json")
 
-        # Load from file
         store = EvidenceStore.load("evidence.json")
-
-        # Query
         commits = store.filter(observation_type="commit")
-        recent = store.filter(after=datetime(2025, 7, 1))
     """
 
     def __init__(self, evidence: Sequence[AnyEvidence] | None = None):
-        """
-        Initialize the store.
-
-        Args:
-            evidence: Optional initial list of evidence objects
-        """
         self._evidence: list[AnyEvidence] = list(evidence) if evidence else []
         self._by_id: dict[str, AnyEvidence] = {e.evidence_id: e for e in self._evidence}
 
     def add(self, evidence: AnyEvidence) -> None:
-        """Add evidence to the store."""
+        """Add evidence to the store (replaces existing with same ID)."""
         if evidence.evidence_id in self._by_id:
-            # Replace existing
             self._evidence = [e for e in self._evidence if e.evidence_id != evidence.evidence_id]
         self._evidence.append(evidence)
         self._by_id[evidence.evidence_id] = evidence
 
     def add_all(self, evidence_list: Sequence[AnyEvidence]) -> None:
         """Add multiple evidence objects to the store."""
-        for evidence in evidence_list:
-            self.add(evidence)
+        for e in evidence_list:
+            self.add(e)
 
     def get(self, evidence_id: str) -> AnyEvidence | None:
         """Get evidence by ID."""
@@ -88,15 +61,12 @@ class EvidenceStore:
         self._by_id.clear()
 
     def __len__(self) -> int:
-        """Return number of evidence items."""
         return len(self._evidence)
 
     def __iter__(self) -> Iterator[AnyEvidence]:
-        """Iterate over all evidence."""
         return iter(self._evidence)
 
     def __contains__(self, evidence_id: str) -> bool:
-        """Check if evidence ID exists in store."""
         return evidence_id in self._by_id
 
     @property
@@ -118,70 +88,34 @@ class EvidenceStore:
         repo: str | None = None,
         after: datetime | None = None,
         before: datetime | None = None,
-        is_verified: bool | None = None,
         predicate: Callable[[AnyEvidence], bool] | None = None,
     ) -> list[AnyEvidence]:
-        """
-        Filter evidence by various criteria.
+        """Filter evidence by various criteria."""
 
-        Args:
-            event_type: Filter to specific event type (e.g., "push", "issue")
-            observation_type: Filter to specific observation type (e.g., "commit", "ioc")
-            source: Filter by verification source
-            repo: Filter by repository (full name, e.g., "aws/aws-toolkit-vscode")
-            after: Filter to evidence with timestamp after this datetime
-            before: Filter to evidence with timestamp before this datetime
-            is_verified: Filter by verification status
-            predicate: Custom filter function
+        def matches(e: AnyEvidence) -> bool:
+            if event_type and getattr(e, "event_type", None) != event_type:
+                return False
+            if observation_type and getattr(e, "observation_type", None) != observation_type:
+                return False
+            if source:
+                src = source if isinstance(source, EvidenceSource) else EvidenceSource(source)
+                if e.verification.source != src:
+                    return False
+            if repo:
+                repo_obj = getattr(e, "repository", None)
+                if not repo_obj or repo_obj.full_name != repo:
+                    return False
+            ts = self._get_timestamp(e)
+            if ts:
+                if after and ts < after:
+                    return False
+                if before and ts > before:
+                    return False
+            if predicate and not predicate(e):
+                return False
+            return True
 
-        Returns:
-            List of matching evidence
-        """
-        results = []
-
-        for evidence in self._evidence:
-            # Event type filter
-            if event_type is not None:
-                if not hasattr(evidence, "event_type") or evidence.event_type != event_type:
-                    continue
-
-            # Observation type filter
-            if observation_type is not None:
-                if not hasattr(evidence, "observation_type") or evidence.observation_type != observation_type:
-                    continue
-
-            # Source filter
-            if source is not None:
-                source_val = source if isinstance(source, EvidenceSource) else EvidenceSource(source)
-                if evidence.verification.source != source_val:
-                    continue
-
-            # Repository filter
-            if repo is not None:
-                repo_obj = getattr(evidence, "repository", None)
-                if repo_obj is None or repo_obj.full_name != repo:
-                    continue
-
-            # Date range filters
-            timestamp = self._get_timestamp(evidence)
-            if timestamp:
-                if after is not None and timestamp < after:
-                    continue
-                if before is not None and timestamp > before:
-                    continue
-
-            # Verification status filter
-            if is_verified is not None:
-                if getattr(evidence, "is_verified", True) != is_verified:
-                    continue
-
-            # Custom predicate
-            if predicate is not None and not predicate(evidence):
-                continue
-
-            results.append(evidence)
-
-        return results
+        return [e for e in self._evidence if matches(e)]
 
     def _get_timestamp(self, evidence: AnyEvidence) -> datetime | None:
         """Get the primary timestamp for an evidence object."""
@@ -208,16 +142,13 @@ class EvidenceStore:
     def from_json(cls, json_str: str) -> "EvidenceStore":
         """Create store from JSON string."""
         from . import load_evidence_from_json
-
         data = json.loads(json_str)
-        evidence = [load_evidence_from_json(item) for item in data]
-        return cls(evidence)
+        return cls([load_evidence_from_json(item) for item in data])
 
     @classmethod
     def load(cls, path: str | Path) -> "EvidenceStore":
         """Load store from JSON file."""
-        path = Path(path)
-        return cls.from_json(path.read_text())
+        return cls.from_json(Path(path).read_text())
 
     def merge(self, other: "EvidenceStore") -> None:
         """Merge another store into this one."""
@@ -229,16 +160,13 @@ class EvidenceStore:
         obs_counts: dict[str, int] = {}
         source_counts: dict[str, int] = {}
 
-        for evidence in self._evidence:
-            # Count by type
-            if hasattr(evidence, "event_type"):
-                event_counts[evidence.event_type] = event_counts.get(evidence.event_type, 0) + 1
-            if hasattr(evidence, "observation_type"):
-                obs_counts[evidence.observation_type] = obs_counts.get(evidence.observation_type, 0) + 1
-
-            # Count by source
-            source = evidence.verification.source.value
-            source_counts[source] = source_counts.get(source, 0) + 1
+        for e in self._evidence:
+            if hasattr(e, "event_type"):
+                event_counts[e.event_type] = event_counts.get(e.event_type, 0) + 1
+            if hasattr(e, "observation_type"):
+                obs_counts[e.observation_type] = obs_counts.get(e.observation_type, 0) + 1
+            src = e.verification.source.value
+            source_counts[src] = source_counts.get(src, 0) + 1
 
         return {
             "total": len(self._evidence),
@@ -248,11 +176,6 @@ class EvidenceStore:
         }
 
     def verify_all(self) -> tuple[bool, list[str]]:
-        """
-        Verify all evidence in the store against their original sources.
-
-        Returns:
-            Tuple of (all_valid, aggregated_errors)
-        """
+        """Verify all evidence against their original sources."""
         from ._verification import verify_all as _verify_all
         return _verify_all(self._evidence)

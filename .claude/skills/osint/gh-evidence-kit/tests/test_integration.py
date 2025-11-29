@@ -292,9 +292,9 @@ class TestGHArchiveIntegration:
                 repo="aws/aws-toolkit-vscode",
                 event_type="IssuesEvent",
             )
-        except Exception as e:
-            if "credentials" in str(e).lower() or "bigquery" in str(e).lower():
-                pytest.skip(f"BigQuery credentials not available: {e}")
+        except (ModuleNotFoundError, Exception) as e:
+            if isinstance(e, ModuleNotFoundError) or "credentials" in str(e).lower() or "bigquery" in str(e).lower():
+                pytest.skip(f"BigQuery not available: {e}")
             raise
 
         # Find issue #7651
@@ -321,9 +321,9 @@ class TestGHArchiveIntegration:
                 repo="aws/aws-toolkit-vscode",
                 event_type="PushEvent",
             )
-        except Exception as e:
-            if "credentials" in str(e).lower() or "bigquery" in str(e).lower():
-                pytest.skip(f"BigQuery credentials not available: {e}")
+        except (ModuleNotFoundError, Exception) as e:
+            if isinstance(e, ModuleNotFoundError) or "credentials" in str(e).lower() or "bigquery" in str(e).lower():
+                pytest.skip(f"BigQuery not available: {e}")
             raise
 
         # Should have push events
@@ -342,9 +342,9 @@ class TestGHArchiveIntegration:
                 repo="aws/aws-toolkit-vscode",
                 event_type="PullRequestEvent",
             )
-        except Exception as e:
-            if "credentials" in str(e).lower() or "bigquery" in str(e).lower():
-                pytest.skip(f"BigQuery credentials not available: {e}")
+        except (ModuleNotFoundError, Exception) as e:
+            if isinstance(e, ModuleNotFoundError) or "credentials" in str(e).lower() or "bigquery" in str(e).lower():
+                pytest.skip(f"BigQuery not available: {e}")
             raise
 
         # May or may not have PRs in this minute
@@ -360,9 +360,9 @@ class TestGHArchiveIntegration:
                 repo="aws/aws-toolkit-vscode",
                 event_type="IssueCommentEvent",
             )
-        except Exception as e:
-            if "credentials" in str(e).lower() or "bigquery" in str(e).lower():
-                pytest.skip(f"BigQuery credentials not available: {e}")
+        except (ModuleNotFoundError, Exception) as e:
+            if isinstance(e, ModuleNotFoundError) or "credentials" in str(e).lower() or "bigquery" in str(e).lower():
+                pytest.skip(f"BigQuery not available: {e}")
             raise
 
         # May or may not have comments in this minute
@@ -378,9 +378,9 @@ class TestGHArchiveIntegration:
                 repo="aws/aws-toolkit-vscode",
                 event_type="CreateEvent",
             )
-        except Exception as e:
-            if "credentials" in str(e).lower() or "bigquery" in str(e).lower():
-                pytest.skip(f"BigQuery credentials not available: {e}")
+        except (ModuleNotFoundError, Exception) as e:
+            if isinstance(e, ModuleNotFoundError) or "credentials" in str(e).lower() or "bigquery" in str(e).lower():
+                pytest.skip(f"BigQuery not available: {e}")
             raise
 
         # May or may not have create events in this minute
@@ -397,9 +397,9 @@ class TestGHArchiveIntegration:
                 repo="aws/aws-toolkit-vscode",
                 event_type="WatchEvent",
             )
-        except Exception as e:
-            if "credentials" in str(e).lower() or "bigquery" in str(e).lower():
-                pytest.skip(f"BigQuery credentials not available: {e}")
+        except (ModuleNotFoundError, Exception) as e:
+            if isinstance(e, ModuleNotFoundError) or "credentials" in str(e).lower() or "bigquery" in str(e).lower():
+                pytest.skip(f"BigQuery not available: {e}")
             raise
 
         # May or may not have watch events in this minute
@@ -414,9 +414,9 @@ class TestGHArchiveIntegration:
                 repo="aws/aws-toolkit-vscode",
                 event_type="ForkEvent",
             )
-        except Exception as e:
-            if "credentials" in str(e).lower() or "bigquery" in str(e).lower():
-                pytest.skip(f"BigQuery credentials not available: {e}")
+        except (ModuleNotFoundError, Exception) as e:
+            if isinstance(e, ModuleNotFoundError) or "credentials" in str(e).lower() or "bigquery" in str(e).lower():
+                pytest.skip(f"BigQuery not available: {e}")
             raise
 
         # May or may not have fork events in this minute
@@ -431,9 +431,9 @@ class TestGHArchiveIntegration:
                 timestamp="202507130752",
                 repo="this-owner-does-not-exist-12345/this-repo-does-not-exist-12345",
             )
-        except Exception as e:
-            if "credentials" in str(e).lower() or "bigquery" in str(e).lower():
-                pytest.skip(f"BigQuery credentials not available: {e}")
+        except (ModuleNotFoundError, Exception) as e:
+            if isinstance(e, ModuleNotFoundError) or "credentials" in str(e).lower() or "bigquery" in str(e).lower():
+                pytest.skip(f"BigQuery not available: {e}")
             raise
 
         assert events == []

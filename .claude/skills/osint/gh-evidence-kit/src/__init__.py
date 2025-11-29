@@ -24,9 +24,15 @@ For loading previously serialized evidence from JSON:
     from src import load_evidence_from_json
     evidence = load_evidence_from_json(json_data)
 
-Type hints only (for static analysis):
-    from src.types import CommitObservation, IssueObservation
+Type hints (for static analysis and IDE autocomplete):
+    from typing import TYPE_CHECKING
+    if TYPE_CHECKING:
+        from src import CommitObservation, IssueObservation
 """
+
+from typing import Annotated, Union, TYPE_CHECKING
+
+from pydantic import Field
 
 from ._creation import EvidenceFactory
 from ._store import EvidenceStore
@@ -43,22 +49,50 @@ from ._schema import (
     IOCType,
 )
 
+# Type aliases for external use
+from ._schema import AnyEvidence, AnyEvent, AnyObservation
 
-def load_evidence_from_json(data: dict) -> "AnyEvidence":
-    """
-    Load a previously serialized evidence object from JSON.
+# Import all schema classes for discriminated union and TYPE_CHECKING exports
+from ._schema import (
+    # Events
+    PushEvent,
+    PullRequestEvent,
+    IssueEvent,
+    IssueCommentEvent,
+    CreateEvent,
+    DeleteEvent,
+    ForkEvent,
+    WorkflowRunEvent,
+    ReleaseEvent,
+    WatchEvent,
+    MemberEvent,
+    PublicEvent,
+    # Observations
+    CommitObservation,
+    IssueObservation,
+    FileObservation,
+    ForkObservation,
+    BranchObservation,
+    TagObservation,
+    ReleaseObservation,
+    SnapshotObservation,
+    IOC,
+    ArticleObservation,
+    # Common models (for type hints)
+    GitHubActor,
+    GitHubRepository,
+    VerificationInfo,
+    Event,
+    Observation,
+    CommitAuthor,
+    FileChange,
+    CommitInPush,
+    WaybackSnapshot,
+)
 
-    Args:
-        data: Dictionary from JSON deserialization (e.g., json.load())
-
-    Returns:
-        The appropriate Event or Observation instance
-
-    Raises:
-        ValueError: If the data cannot be parsed into a known evidence type
-    """
-    from ._schema import (
-        # Events
+# Pydantic discriminated union for efficient JSON deserialization
+_EventUnion = Annotated[
+    Union[
         PushEvent,
         PullRequestEvent,
         IssueEvent,
@@ -71,7 +105,12 @@ def load_evidence_from_json(data: dict) -> "AnyEvidence":
         WatchEvent,
         MemberEvent,
         PublicEvent,
-        # Observations
+    ],
+    Field(discriminator="event_type"),
+]
+
+_ObservationUnion = Annotated[
+    Union[
         CommitObservation,
         IssueObservation,
         FileObservation,
@@ -82,52 +121,43 @@ def load_evidence_from_json(data: dict) -> "AnyEvidence":
         SnapshotObservation,
         IOC,
         ArticleObservation,
-    )
+    ],
+    Field(discriminator="observation_type"),
+]
 
-    # Determine type from discriminator fields
+from pydantic import TypeAdapter
+
+_event_adapter = TypeAdapter(_EventUnion)
+_observation_adapter = TypeAdapter(_ObservationUnion)
+
+
+def load_evidence_from_json(data: dict) -> AnyEvidence:
+    """
+    Load a previously serialized evidence object from JSON.
+
+    Args:
+        data: Dictionary from JSON deserialization (e.g., json.load())
+
+    Returns:
+        The appropriate Event or Observation instance
+
+    Raises:
+        ValueError: If the data cannot be parsed into a known evidence type
+    """
     if "event_type" in data:
-        event_map = {
-            "push": PushEvent,
-            "pull_request": PullRequestEvent,
-            "issue": IssueEvent,
-            "issue_comment": IssueCommentEvent,
-            "create": CreateEvent,
-            "delete": DeleteEvent,
-            "fork": ForkEvent,
-            "workflow_run": WorkflowRunEvent,
-            "release": ReleaseEvent,
-            "watch": WatchEvent,
-            "member": MemberEvent,
-            "public": PublicEvent,
-        }
-        event_cls = event_map.get(data["event_type"])
-        if event_cls:
-            return event_cls.model_validate(data)
-        raise ValueError(f"Unknown event_type: {data['event_type']}")
+        try:
+            return _event_adapter.validate_python(data)
+        except Exception as e:
+            raise ValueError(f"Unknown event_type: {data.get('event_type')}") from e
 
     if "observation_type" in data:
-        obs_map = {
-            "commit": CommitObservation,
-            "issue": IssueObservation,
-            "file": FileObservation,
-            "fork": ForkObservation,
-            "branch": BranchObservation,
-            "tag": TagObservation,
-            "release": ReleaseObservation,
-            "snapshot": SnapshotObservation,
-            "ioc": IOC,
-            "article": ArticleObservation,
-        }
-        obs_cls = obs_map.get(data["observation_type"])
-        if obs_cls:
-            return obs_cls.model_validate(data)
-        raise ValueError(f"Unknown observation_type: {data['observation_type']}")
+        try:
+            return _observation_adapter.validate_python(data)
+        except Exception as e:
+            raise ValueError(f"Unknown observation_type: {data.get('observation_type')}") from e
 
     raise ValueError("Data must contain 'event_type' or 'observation_type' field")
 
-
-# Type alias for return type
-from ._schema import AnyEvidence, AnyEvent, AnyObservation
 
 __all__ = [
     # Factory - Create evidence from sources
@@ -150,4 +180,36 @@ __all__ = [
     "AnyEvidence",
     "AnyEvent",
     "AnyObservation",
+    # Type hints (for static analysis)
+    "GitHubActor",
+    "GitHubRepository",
+    "VerificationInfo",
+    "Event",
+    "Observation",
+    "CommitAuthor",
+    "FileChange",
+    "CommitInPush",
+    "WaybackSnapshot",
+    "PushEvent",
+    "PullRequestEvent",
+    "IssueEvent",
+    "IssueCommentEvent",
+    "CreateEvent",
+    "DeleteEvent",
+    "ForkEvent",
+    "WorkflowRunEvent",
+    "ReleaseEvent",
+    "WatchEvent",
+    "MemberEvent",
+    "PublicEvent",
+    "CommitObservation",
+    "IssueObservation",
+    "FileObservation",
+    "ForkObservation",
+    "BranchObservation",
+    "TagObservation",
+    "ReleaseObservation",
+    "SnapshotObservation",
+    "IOC",
+    "ArticleObservation",
 ]
