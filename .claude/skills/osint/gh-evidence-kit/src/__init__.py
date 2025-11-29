@@ -28,10 +28,10 @@ Type hints only (for static analysis):
     from src.types import CommitObservation, IssueObservation
 """
 
-from ._creation import (
-    # Factory - THE ONLY WAY to create verified evidence
-    EvidenceFactory,
-    # Query Models - For type hints in factory method signatures
+from ._creation import EvidenceFactory
+
+# Query Models - For type hints in factory method signatures
+from ._queries import (
     RepositoryQuery,
     CommitQuery,
     IssueQuery,

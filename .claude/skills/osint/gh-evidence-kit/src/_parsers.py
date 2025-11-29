@@ -11,10 +11,10 @@ import json
 from typing import Any
 
 from ._helpers import (
-    generate_evidence_id as _generate_evidence_id,
-    make_actor as _make_actor,
-    make_repo_from_full_name as _make_repo,
-    parse_datetime_lenient as _parse_datetime,
+    generate_evidence_id,
+    make_actor,
+    make_repo_from_full_name,
+    parse_datetime_lenient,
 )
 from ._schema import (
     CommitInPush,
@@ -23,7 +23,6 @@ from ._schema import (
     EvidenceSource,
     ForkEvent,
     GitHubActor,
-    GitHubRepository,
     IssueAction,
     IssueCommentEvent,
     IssueEvent,
@@ -49,9 +48,9 @@ class _RowContext:
     def __init__(self, row: dict[str, Any]):
         self.row = row
         self.payload = json.loads(row["payload"]) if isinstance(row["payload"], str) else row["payload"]
-        self.when = _parse_datetime(row.get("created_at"))
-        self.who = _make_actor(row.get("actor_login", "unknown"), row.get("actor_id"))
-        self.repository = _make_repo(row.get("repo_name", "unknown/unknown"))
+        self.when = parse_datetime_lenient(row.get("created_at"))
+        self.who = make_actor(row.get("actor_login", "unknown"), row.get("actor_id"))
+        self.repository = make_repo_from_full_name(row.get("repo_name", "unknown/unknown"))
         self.verification = VerificationInfo(
             source=EvidenceSource.GHARCHIVE,
             bigquery_table="githubarchive.day.*",
@@ -87,7 +86,7 @@ def parse_push_event(row: dict[str, Any]) -> PushEvent:
     ref = payload.get("ref", "")
 
     return PushEvent(
-        evidence_id=_generate_evidence_id("push", ctx.repository.full_name, after_sha),
+        evidence_id=generate_evidence_id("push", ctx.repository.full_name, after_sha),
         when=ctx.when,
         who=ctx.who,
         what=f"Pushed {size} commit(s) to {ref}",
@@ -122,7 +121,7 @@ def parse_issue_event(row: dict[str, Any]) -> IssueEvent:
     issue_number = issue.get("number", 0)
 
     return IssueEvent(
-        evidence_id=_generate_evidence_id("issue", ctx.repository.full_name, str(issue_number), action_str),
+        evidence_id=generate_evidence_id("issue", ctx.repository.full_name, str(issue_number), action_str),
         when=ctx.when,
         who=ctx.who,
         what=f"Issue #{issue_number} {action_str}",
@@ -145,7 +144,7 @@ def parse_create_event(row: dict[str, Any]) -> CreateEvent:
     ref_name = ctx.payload.get("ref", "")
 
     return CreateEvent(
-        evidence_id=_generate_evidence_id("create", ctx.repository.full_name, ref_type_str, ref_name),
+        evidence_id=generate_evidence_id("create", ctx.repository.full_name, ref_type_str, ref_name),
         when=ctx.when,
         who=ctx.who,
         what=f"Created {ref_type_str} '{ref_name}'",
@@ -170,7 +169,7 @@ def parse_pull_request_event(row: dict[str, Any]) -> PullRequestEvent:
     pr_number = pr.get("number", 0)
 
     return PullRequestEvent(
-        evidence_id=_generate_evidence_id("pr", ctx.repository.full_name, str(pr_number), action_str),
+        evidence_id=generate_evidence_id("pr", ctx.repository.full_name, str(pr_number), action_str),
         when=ctx.when,
         who=ctx.who,
         what=f"PR #{pr_number} {action_str}",
@@ -193,7 +192,7 @@ def parse_issue_comment_event(row: dict[str, Any]) -> IssueCommentEvent:
     comment_id = comment.get("id", 0)
 
     return IssueCommentEvent(
-        evidence_id=_generate_evidence_id("comment", ctx.repository.full_name, str(comment_id)),
+        evidence_id=generate_evidence_id("comment", ctx.repository.full_name, str(comment_id)),
         when=ctx.when,
         who=ctx.who,
         what=f"Comment on issue #{issue.get('number')}",
@@ -211,7 +210,7 @@ def parse_watch_event(row: dict[str, Any]) -> WatchEvent:
     ctx = _RowContext(row)
 
     return WatchEvent(
-        evidence_id=_generate_evidence_id("watch", ctx.repository.full_name, ctx.who.login),
+        evidence_id=generate_evidence_id("watch", ctx.repository.full_name, ctx.who.login),
         when=ctx.when,
         who=ctx.who,
         what=f"User {ctx.who.login} starred repository",
@@ -227,7 +226,7 @@ def parse_fork_event(row: dict[str, Any]) -> ForkEvent:
     fork_full_name = forkee.get("full_name", f"{ctx.who.login}/{ctx.repository.name}")
 
     return ForkEvent(
-        evidence_id=_generate_evidence_id("fork", ctx.repository.full_name, fork_full_name),
+        evidence_id=generate_evidence_id("fork", ctx.repository.full_name, fork_full_name),
         when=ctx.when,
         who=ctx.who,
         what=f"Forked to {fork_full_name}",
@@ -247,7 +246,7 @@ def parse_delete_event(row: dict[str, Any]) -> DeleteEvent:
     ref_name = ctx.payload.get("ref", "")
 
     return DeleteEvent(
-        evidence_id=_generate_evidence_id("delete", ctx.repository.full_name, ref_type_str, ref_name),
+        evidence_id=generate_evidence_id("delete", ctx.repository.full_name, ref_type_str, ref_name),
         when=ctx.when,
         who=ctx.who,
         what=f"Deleted {ref_type_str} '{ref_name}'",
@@ -269,7 +268,7 @@ def parse_member_event(row: dict[str, Any]) -> MemberEvent:
     normalized_action = action_map.get(action, "added")
 
     return MemberEvent(
-        evidence_id=_generate_evidence_id("member", ctx.repository.full_name, member.get("login", ""), action),
+        evidence_id=generate_evidence_id("member", ctx.repository.full_name, member.get("login", ""), action),
         when=ctx.when,
         who=ctx.who,
         what=f"Collaborator {member.get('login', 'unknown')} {normalized_action}",
@@ -285,7 +284,7 @@ def parse_public_event(row: dict[str, Any]) -> PublicEvent:
     ctx = _RowContext(row)
 
     return PublicEvent(
-        evidence_id=_generate_evidence_id("public", ctx.repository.full_name, str(ctx.when.timestamp())),
+        evidence_id=generate_evidence_id("public", ctx.repository.full_name, str(ctx.when.timestamp())),
         when=ctx.when,
         who=ctx.who,
         what=f"Repository {ctx.repository.full_name} made public",
@@ -306,7 +305,7 @@ def parse_release_event(row: dict[str, Any]) -> ReleaseEvent:
     normalized_action = action_map.get(action, "published")
 
     return ReleaseEvent(
-        evidence_id=_generate_evidence_id("release", ctx.repository.full_name, tag_name, action),
+        evidence_id=generate_evidence_id("release", ctx.repository.full_name, tag_name, action),
         when=ctx.when,
         who=ctx.who,
         what=f"Release {tag_name} {normalized_action}",
@@ -340,7 +339,7 @@ def parse_workflow_run_event(row: dict[str, Any]) -> WorkflowRunEvent:
     head_sha = workflow_run.get("head_sha", "0" * 40)
 
     return WorkflowRunEvent(
-        evidence_id=_generate_evidence_id("workflow", ctx.repository.full_name, workflow_name, head_sha[:8]),
+        evidence_id=generate_evidence_id("workflow", ctx.repository.full_name, workflow_name, head_sha[:8]),
         when=ctx.when,
         who=ctx.who,
         what=f"Workflow '{workflow_name}' {normalized_action}",

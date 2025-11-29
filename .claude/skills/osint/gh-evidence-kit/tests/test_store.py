@@ -3,6 +3,7 @@
 Unit tests for EvidenceStore.
 
 Tests save/load/query functionality for evidence collections.
+Fixtures are defined in conftest.py.
 """
 
 import json
@@ -19,96 +20,6 @@ from src import EvidenceStore, EvidenceSource, load_evidence_from_json
 
 
 # =============================================================================
-# FIXTURES
-# =============================================================================
-
-
-@pytest.fixture
-def sample_push_event() -> dict:
-    """Sample push event data."""
-    return {
-        "event_type": "push",
-        "evidence_id": "push-test-001",
-        "when": "2025-07-13T20:37:04Z",
-        "who": {"login": "testuser", "id": 12345},
-        "what": "Pushed 1 commit(s) to refs/heads/master",
-        "repository": {
-            "owner": "aws",
-            "name": "aws-toolkit-vscode",
-            "full_name": "aws/aws-toolkit-vscode",
-        },
-        "verification": {
-            "source": "gharchive",
-            "bigquery_table": "githubarchive.day.*",
-        },
-        "ref": "refs/heads/master",
-        "before_sha": "d1959b996841883b3c14eadc5bc195fe8f65a63b",
-        "after_sha": "678851bbe9776228f55e0460e66a6167ac2a1685",
-        "size": 1,
-        "commits": [],
-        "is_force_push": False,
-    }
-
-
-@pytest.fixture
-def sample_commit_observation() -> dict:
-    """Sample commit observation data."""
-    return {
-        "observation_type": "commit",
-        "evidence_id": "commit-test-001",
-        "original_when": "2025-07-13T20:30:24Z",
-        "original_who": {"login": "lkmanka58"},
-        "original_what": "Malicious commit",
-        "observed_when": "2025-11-28T21:00:00Z",
-        "observed_by": "github",
-        "observed_what": "Commit observed via GitHub API",
-        "repository": {
-            "owner": "aws",
-            "name": "aws-toolkit-vscode",
-            "full_name": "aws/aws-toolkit-vscode",
-        },
-        "verification": {
-            "source": "github",
-            "url": "https://github.com/aws/aws-toolkit-vscode/commit/678851b",
-        },
-        "sha": "678851bbe9776228f55e0460e66a6167ac2a1685",
-        "message": "fix(amazonq): test commit",
-        "author": {
-            "name": "lkmanka58",
-            "email": "lkmanka58@users.noreply.github.com",
-            "date": "2025-07-13T20:30:24Z",
-        },
-        "committer": {
-            "name": "lkmanka58",
-            "email": "lkmanka58@users.noreply.github.com",
-            "date": "2025-07-13T20:30:24Z",
-        },
-        "parents": [],
-        "files": [],
-    }
-
-
-@pytest.fixture
-def sample_ioc() -> dict:
-    """Sample IOC data."""
-    return {
-        "observation_type": "ioc",
-        "evidence_id": "ioc-test-001",
-        "observed_when": "2025-07-24T12:00:00Z",
-        "observed_by": "security_vendor",
-        "observed_what": "IOC commit_sha identified",
-        "verification": {
-            "source": "security_vendor",
-            "url": "https://example.com/report",
-        },
-        "ioc_type": "commit_sha",
-        "value": "678851bbe9776228f55e0460e66a6167ac2a1685",
-        "first_seen": "2025-07-13T20:30:24Z",
-        "last_seen": "2025-07-18T23:21:03Z",
-    }
-
-
-# =============================================================================
 # STORE BASIC OPERATIONS
 # =============================================================================
 
@@ -121,10 +32,10 @@ class TestEvidenceStoreBasics:
         store = EvidenceStore()
         assert len(store) == 0
 
-    def test_add_and_get_evidence(self, sample_push_event):
+    def test_add_and_get_evidence(self, sample_push_event_data):
         """Add evidence and retrieve by ID."""
         store = EvidenceStore()
-        event = load_evidence_from_json(sample_push_event)
+        event = load_evidence_from_json(sample_push_event_data)
 
         store.add(event)
 
@@ -132,14 +43,14 @@ class TestEvidenceStoreBasics:
         assert store.get("push-test-001") is not None
         assert store.get("push-test-001").evidence_id == "push-test-001"
 
-    def test_add_replaces_existing(self, sample_push_event):
+    def test_add_replaces_existing(self, sample_push_event_data):
         """Adding evidence with same ID replaces existing."""
         store = EvidenceStore()
-        event1 = load_evidence_from_json(sample_push_event)
+        event1 = load_evidence_from_json(sample_push_event_data)
 
         # Modify and add again
-        sample_push_event["what"] = "Modified description"
-        event2 = load_evidence_from_json(sample_push_event)
+        sample_push_event_data["what"] = "Modified description"
+        event2 = load_evidence_from_json(sample_push_event_data)
 
         store.add(event1)
         store.add(event2)
@@ -147,40 +58,40 @@ class TestEvidenceStoreBasics:
         assert len(store) == 1
         assert store.get("push-test-001").what == "Modified description"
 
-    def test_remove_evidence(self, sample_push_event):
+    def test_remove_evidence(self, sample_push_event_data):
         """Remove evidence by ID."""
         store = EvidenceStore()
-        event = load_evidence_from_json(sample_push_event)
+        event = load_evidence_from_json(sample_push_event_data)
         store.add(event)
 
         assert store.remove("push-test-001") is True
         assert len(store) == 0
         assert store.remove("push-test-001") is False
 
-    def test_clear_store(self, sample_push_event, sample_commit_observation):
+    def test_clear_store(self, sample_push_event_data, sample_commit_observation_data):
         """Clear all evidence from store."""
         store = EvidenceStore()
-        store.add(load_evidence_from_json(sample_push_event))
-        store.add(load_evidence_from_json(sample_commit_observation))
+        store.add(load_evidence_from_json(sample_push_event_data))
+        store.add(load_evidence_from_json(sample_commit_observation_data))
 
         assert len(store) == 2
         store.clear()
         assert len(store) == 0
 
-    def test_contains_check(self, sample_push_event):
+    def test_contains_check(self, sample_push_event_data):
         """Check if evidence ID exists in store."""
         store = EvidenceStore()
-        event = load_evidence_from_json(sample_push_event)
+        event = load_evidence_from_json(sample_push_event_data)
         store.add(event)
 
         assert "push-test-001" in store
         assert "nonexistent" not in store
 
-    def test_iterate_over_store(self, sample_push_event, sample_commit_observation):
+    def test_iterate_over_store(self, sample_push_event_data, sample_commit_observation_data):
         """Iterate over all evidence in store."""
         store = EvidenceStore()
-        store.add(load_evidence_from_json(sample_push_event))
-        store.add(load_evidence_from_json(sample_commit_observation))
+        store.add(load_evidence_from_json(sample_push_event_data))
+        store.add(load_evidence_from_json(sample_commit_observation_data))
 
         evidence_ids = [e.evidence_id for e in store]
         assert len(evidence_ids) == 2
@@ -196,22 +107,22 @@ class TestEvidenceStoreBasics:
 class TestEvidenceStoreFiltering:
     """Test store filtering capabilities."""
 
-    def test_filter_by_event_type(self, sample_push_event, sample_commit_observation):
+    def test_filter_by_event_type(self, sample_push_event_data, sample_commit_observation_data):
         """Filter by event type."""
         store = EvidenceStore()
-        store.add(load_evidence_from_json(sample_push_event))
-        store.add(load_evidence_from_json(sample_commit_observation))
+        store.add(load_evidence_from_json(sample_push_event_data))
+        store.add(load_evidence_from_json(sample_commit_observation_data))
 
         push_events = store.filter(event_type="push")
         assert len(push_events) == 1
         assert push_events[0].evidence_id == "push-test-001"
 
-    def test_filter_by_observation_type(self, sample_push_event, sample_commit_observation, sample_ioc):
+    def test_filter_by_observation_type(self, sample_push_event_data, sample_commit_observation_data, sample_ioc_data):
         """Filter by observation type."""
         store = EvidenceStore()
-        store.add(load_evidence_from_json(sample_push_event))
-        store.add(load_evidence_from_json(sample_commit_observation))
-        store.add(load_evidence_from_json(sample_ioc))
+        store.add(load_evidence_from_json(sample_push_event_data))
+        store.add(load_evidence_from_json(sample_commit_observation_data))
+        store.add(load_evidence_from_json(sample_ioc_data))
 
         commits = store.filter(observation_type="commit")
         assert len(commits) == 1
@@ -220,11 +131,11 @@ class TestEvidenceStoreFiltering:
         iocs = store.filter(observation_type="ioc")
         assert len(iocs) == 1
 
-    def test_filter_by_source(self, sample_push_event, sample_commit_observation):
+    def test_filter_by_source(self, sample_push_event_data, sample_commit_observation_data):
         """Filter by verification source."""
         store = EvidenceStore()
-        store.add(load_evidence_from_json(sample_push_event))
-        store.add(load_evidence_from_json(sample_commit_observation))
+        store.add(load_evidence_from_json(sample_push_event_data))
+        store.add(load_evidence_from_json(sample_commit_observation_data))
 
         github_evidence = store.filter(source=EvidenceSource.GITHUB)
         assert len(github_evidence) == 1
@@ -232,11 +143,11 @@ class TestEvidenceStoreFiltering:
         gharchive_evidence = store.filter(source="gharchive")
         assert len(gharchive_evidence) == 1
 
-    def test_filter_by_repository(self, sample_push_event, sample_commit_observation):
+    def test_filter_by_repository(self, sample_push_event_data, sample_commit_observation_data):
         """Filter by repository."""
         store = EvidenceStore()
-        store.add(load_evidence_from_json(sample_push_event))
-        store.add(load_evidence_from_json(sample_commit_observation))
+        store.add(load_evidence_from_json(sample_push_event_data))
+        store.add(load_evidence_from_json(sample_commit_observation_data))
 
         aws_evidence = store.filter(repo="aws/aws-toolkit-vscode")
         assert len(aws_evidence) == 2
@@ -244,11 +155,11 @@ class TestEvidenceStoreFiltering:
         other_evidence = store.filter(repo="other/repo")
         assert len(other_evidence) == 0
 
-    def test_filter_by_date_range(self, sample_push_event, sample_commit_observation):
+    def test_filter_by_date_range(self, sample_push_event_data, sample_commit_observation_data):
         """Filter by date range."""
         store = EvidenceStore()
-        store.add(load_evidence_from_json(sample_push_event))
-        store.add(load_evidence_from_json(sample_commit_observation))
+        store.add(load_evidence_from_json(sample_push_event_data))
+        store.add(load_evidence_from_json(sample_commit_observation_data))
 
         # Filter after July 1st
         after_july = store.filter(after=datetime(2025, 7, 1, tzinfo=timezone.utc))
@@ -262,32 +173,32 @@ class TestEvidenceStoreFiltering:
         future = store.filter(after=datetime(2026, 1, 1, tzinfo=timezone.utc))
         assert len(future) == 0
 
-    def test_filter_with_predicate(self, sample_push_event, sample_commit_observation):
+    def test_filter_with_predicate(self, sample_push_event_data, sample_commit_observation_data):
         """Filter with custom predicate."""
         store = EvidenceStore()
-        store.add(load_evidence_from_json(sample_push_event))
-        store.add(load_evidence_from_json(sample_commit_observation))
+        store.add(load_evidence_from_json(sample_push_event_data))
+        store.add(load_evidence_from_json(sample_commit_observation_data))
 
         # Custom predicate
         has_sha = store.filter(predicate=lambda e: hasattr(e, "sha"))
         assert len(has_sha) == 1
 
-    def test_events_property(self, sample_push_event, sample_commit_observation):
+    def test_events_property(self, sample_push_event_data, sample_commit_observation_data):
         """Get all events via property."""
         store = EvidenceStore()
-        store.add(load_evidence_from_json(sample_push_event))
-        store.add(load_evidence_from_json(sample_commit_observation))
+        store.add(load_evidence_from_json(sample_push_event_data))
+        store.add(load_evidence_from_json(sample_commit_observation_data))
 
         events = store.events
         assert len(events) == 1
         assert events[0].evidence_id == "push-test-001"
 
-    def test_observations_property(self, sample_push_event, sample_commit_observation, sample_ioc):
+    def test_observations_property(self, sample_push_event_data, sample_commit_observation_data, sample_ioc_data):
         """Get all observations via property."""
         store = EvidenceStore()
-        store.add(load_evidence_from_json(sample_push_event))
-        store.add(load_evidence_from_json(sample_commit_observation))
-        store.add(load_evidence_from_json(sample_ioc))
+        store.add(load_evidence_from_json(sample_push_event_data))
+        store.add(load_evidence_from_json(sample_commit_observation_data))
+        store.add(load_evidence_from_json(sample_ioc_data))
 
         observations = store.observations
         assert len(observations) == 2
@@ -301,11 +212,11 @@ class TestEvidenceStoreFiltering:
 class TestEvidenceStoreSerialization:
     """Test store save/load functionality."""
 
-    def test_to_json(self, sample_push_event, sample_commit_observation):
+    def test_to_json(self, sample_push_event_data, sample_commit_observation_data):
         """Serialize store to JSON string."""
         store = EvidenceStore()
-        store.add(load_evidence_from_json(sample_push_event))
-        store.add(load_evidence_from_json(sample_commit_observation))
+        store.add(load_evidence_from_json(sample_push_event_data))
+        store.add(load_evidence_from_json(sample_commit_observation_data))
 
         json_str = store.to_json()
         data = json.loads(json_str)
@@ -313,12 +224,12 @@ class TestEvidenceStoreSerialization:
         assert isinstance(data, list)
         assert len(data) == 2
 
-    def test_from_json(self, sample_push_event, sample_commit_observation):
+    def test_from_json(self, sample_push_event_data, sample_commit_observation_data):
         """Create store from JSON string."""
         # Create and serialize
         store1 = EvidenceStore()
-        store1.add(load_evidence_from_json(sample_push_event))
-        store1.add(load_evidence_from_json(sample_commit_observation))
+        store1.add(load_evidence_from_json(sample_push_event_data))
+        store1.add(load_evidence_from_json(sample_commit_observation_data))
         json_str = store1.to_json()
 
         # Deserialize
@@ -328,15 +239,15 @@ class TestEvidenceStoreSerialization:
         assert store2.get("push-test-001") is not None
         assert store2.get("commit-test-001") is not None
 
-    def test_save_and_load(self, sample_push_event, sample_commit_observation):
+    def test_save_and_load(self, sample_push_event_data, sample_commit_observation_data):
         """Save to file and load back."""
         with tempfile.TemporaryDirectory() as tmpdir:
             filepath = Path(tmpdir) / "evidence.json"
 
             # Save
             store1 = EvidenceStore()
-            store1.add(load_evidence_from_json(sample_push_event))
-            store1.add(load_evidence_from_json(sample_commit_observation))
+            store1.add(load_evidence_from_json(sample_push_event_data))
+            store1.add(load_evidence_from_json(sample_commit_observation_data))
             store1.save(filepath)
 
             # Load
@@ -345,13 +256,13 @@ class TestEvidenceStoreSerialization:
             assert len(store2) == 2
             assert store2.get("push-test-001") is not None
 
-    def test_save_creates_directories(self, sample_push_event):
+    def test_save_creates_directories(self, sample_push_event_data):
         """Save creates parent directories if needed."""
         with tempfile.TemporaryDirectory() as tmpdir:
             filepath = Path(tmpdir) / "nested" / "path" / "evidence.json"
 
             store = EvidenceStore()
-            store.add(load_evidence_from_json(sample_push_event))
+            store.add(load_evidence_from_json(sample_push_event_data))
             store.save(filepath)
 
             assert filepath.exists()
@@ -365,14 +276,14 @@ class TestEvidenceStoreSerialization:
 class TestEvidenceStoreMerge:
     """Test store merge and summary."""
 
-    def test_merge_stores(self, sample_push_event, sample_commit_observation, sample_ioc):
+    def test_merge_stores(self, sample_push_event_data, sample_commit_observation_data, sample_ioc_data):
         """Merge two stores."""
         store1 = EvidenceStore()
-        store1.add(load_evidence_from_json(sample_push_event))
+        store1.add(load_evidence_from_json(sample_push_event_data))
 
         store2 = EvidenceStore()
-        store2.add(load_evidence_from_json(sample_commit_observation))
-        store2.add(load_evidence_from_json(sample_ioc))
+        store2.add(load_evidence_from_json(sample_commit_observation_data))
+        store2.add(load_evidence_from_json(sample_ioc_data))
 
         store1.merge(store2)
 
@@ -381,12 +292,12 @@ class TestEvidenceStoreMerge:
         assert "commit-test-001" in store1
         assert "ioc-test-001" in store1
 
-    def test_summary(self, sample_push_event, sample_commit_observation, sample_ioc):
+    def test_summary(self, sample_push_event_data, sample_commit_observation_data, sample_ioc_data):
         """Get store summary."""
         store = EvidenceStore()
-        store.add(load_evidence_from_json(sample_push_event))
-        store.add(load_evidence_from_json(sample_commit_observation))
-        store.add(load_evidence_from_json(sample_ioc))
+        store.add(load_evidence_from_json(sample_push_event_data))
+        store.add(load_evidence_from_json(sample_commit_observation_data))
+        store.add(load_evidence_from_json(sample_ioc_data))
 
         summary = store.summary()
 

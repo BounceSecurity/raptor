@@ -13,6 +13,7 @@ All sources are public - no authentication required:
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from typing import Any
 
@@ -29,13 +30,11 @@ from ._queries import (
     CommitQuery,
     FileQuery,
     ForkQuery,
-    GHArchiveQuery,
     IssueQuery,
     ReleaseQuery,
     RepositoryQuery,
     TagQuery,
     WaybackQuery,
-    WikiQuery,
 )
 from ._schema import (
     AnyEvent,

@@ -2,12 +2,13 @@
 """
 Unit tests for _parsers.py module.
 
-Tests the extracted parser functions that convert GH Archive rows
-into Evidence objects.
+Tests the GH Archive event parser functions.
+
+Note: Helper function tests (generate_evidence_id, parse_datetime, etc.)
+are in test_helpers.py to avoid duplication.
 """
 
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -20,117 +21,15 @@ from src._parsers import (
     parse_delete_event,
     parse_fork_event,
     parse_gharchive_event,
-    parse_issue_comment_event,
     parse_issue_event,
     parse_member_event,
     parse_public_event,
-    parse_pull_request_event,
     parse_push_event,
     parse_release_event,
     parse_watch_event,
     parse_workflow_run_event,
 )
-from src._helpers import (
-    generate_evidence_id as _generate_evidence_id,
-    make_actor as _make_actor,
-    make_repo_from_full_name as _make_repo,
-    parse_datetime_lenient as _parse_datetime,
-)
-from src._schema import EvidenceSource, IssueAction, PRAction, RefType, WorkflowConclusion
-
-
-# =============================================================================
-# HELPER FUNCTION TESTS
-# =============================================================================
-
-
-class TestGenerateEvidenceId:
-    """Test evidence ID generation."""
-
-    def test_deterministic(self):
-        """Same inputs produce same ID."""
-        id1 = _generate_evidence_id("test", "a", "b", "c")
-        id2 = _generate_evidence_id("test", "a", "b", "c")
-        assert id1 == id2
-
-    def test_different_inputs_different_ids(self):
-        """Different inputs produce different IDs."""
-        id1 = _generate_evidence_id("test", "a", "b")
-        id2 = _generate_evidence_id("test", "a", "c")
-        assert id1 != id2
-
-    def test_prefix_applied(self):
-        """Prefix is included in the ID."""
-        id1 = _generate_evidence_id("push", "repo", "sha")
-        assert id1.startswith("push-")
-
-    def test_hash_length(self):
-        """ID hash part is 12 characters."""
-        id1 = _generate_evidence_id("test", "input")
-        parts = id1.split("-")
-        assert len(parts[1]) == 12
-
-
-class TestParseDatetime:
-    """Test datetime parsing."""
-
-    def test_none_returns_now(self):
-        """None input returns current time."""
-        result = _parse_datetime(None)
-        assert isinstance(result, datetime)
-        assert result.tzinfo is not None
-
-    def test_datetime_passthrough(self):
-        """datetime objects pass through unchanged."""
-        dt = datetime(2025, 7, 13, 12, 0, 0, tzinfo=timezone.utc)
-        result = _parse_datetime(dt)
-        assert result == dt
-
-    def test_iso_format_with_z(self):
-        """ISO format with Z suffix is parsed."""
-        result = _parse_datetime("2025-07-13T20:37:04Z")
-        assert result.year == 2025
-        assert result.month == 7
-        assert result.day == 13
-
-    def test_iso_format_with_timezone(self):
-        """ISO format with timezone offset is parsed."""
-        result = _parse_datetime("2025-07-13T07:52:37+00:00")
-        assert result.year == 2025
-        assert result.hour == 7
-
-
-class TestMakeActor:
-    """Test actor creation helper."""
-
-    def test_creates_actor(self):
-        """Creates GitHubActor with login and id."""
-        actor = _make_actor("testuser", 12345)
-        assert actor.login == "testuser"
-        assert actor.id == 12345
-
-    def test_optional_id(self):
-        """ID is optional."""
-        actor = _make_actor("testuser")
-        assert actor.login == "testuser"
-        assert actor.id is None
-
-
-class TestMakeRepo:
-    """Test repository creation helper."""
-
-    def test_creates_from_full_name(self):
-        """Creates GitHubRepository from owner/name format."""
-        repo = _make_repo("aws/aws-toolkit-vscode")
-        assert repo.owner == "aws"
-        assert repo.name == "aws-toolkit-vscode"
-        assert repo.full_name == "aws/aws-toolkit-vscode"
-
-    def test_handles_no_slash(self):
-        """Handles repo name without slash."""
-        repo = _make_repo("single-name")
-        assert repo.owner == "unknown"
-        assert repo.name == "single-name"
+from src._schema import EvidenceSource, IssueAction, RefType, WorkflowConclusion
 
 
 # =============================================================================
