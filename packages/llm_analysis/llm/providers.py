@@ -209,6 +209,12 @@ Respond with valid JSON matching this schema:
             )
 
             content = response.choices[0].message.content
+
+            # Track usage
+            tokens_used = response.usage.total_tokens
+            cost = (tokens_used / 1000) * self.config.cost_per_1k_tokens
+            self.track_usage(tokens_used, cost)
+
             return json.loads(content), content
 
         except Exception as e:
