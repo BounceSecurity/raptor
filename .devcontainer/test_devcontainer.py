@@ -306,7 +306,6 @@ def check_raptor_imports() -> List[TestResult]:
         ("codeql", "CodeQL package"),
         ("fuzzing", "Fuzzing package"),
         ("llm_analysis", "LLM analysis package"),
-        ("static-analysis.scanner", "Static analysis scanner"),
         ("web", "Web package"),
         ("recon", "Recon package"),
         ("sca", "SCA package"),
@@ -314,9 +313,7 @@ def check_raptor_imports() -> List[TestResult]:
 
     for module_name, description in packages_to_test:
         try:
-            # Handle hyphenated module names
-            actual_name = module_name.replace("-", "_")
-            importlib.import_module(actual_name)
+            importlib.import_module(module_name)
             results.append(TestResult(
                 name=f"import {module_name}",
                 category=Category.PYTHON_CORE,
@@ -334,6 +331,45 @@ def check_raptor_imports() -> List[TestResult]:
                 message=f"Import failed: {e}",
                 used_by=[description]
             ))
+
+    # Test static-analysis separately (used as script, not importable module)
+    static_analysis_scanner = Path("packages/static-analysis/scanner.py")
+    if static_analysis_scanner.exists():
+        # Verify it's executable as a script by checking it has main()
+        try:
+            old_path = list(sys.path)
+            sys.path.insert(0, str(static_analysis_scanner.parent))
+            import scanner as static_scanner
+            has_main = hasattr(static_scanner, 'main')
+            sys.modules.pop('scanner', None)  # Clean up
+            sys.path = old_path
+            results.append(TestResult(
+                name="static-analysis scanner",
+                category=Category.PYTHON_CORE,
+                passed=has_main,
+                required=True,
+                message="Scanner script loadable and has main()" if has_main else "Scanner missing main()",
+                used_by=["Static analysis scanner"]
+            ))
+        except Exception as e:
+            sys.path = old_path
+            results.append(TestResult(
+                name="static-analysis scanner",
+                category=Category.PYTHON_CORE,
+                passed=False,
+                required=True,
+                message=f"Scanner script test failed: {e}",
+                used_by=["Static analysis scanner"]
+            ))
+    else:
+        results.append(TestResult(
+            name="static-analysis scanner",
+            category=Category.PYTHON_CORE,
+            passed=False,
+            required=True,
+            message="packages/static-analysis/scanner.py not found",
+            used_by=["Static analysis scanner"]
+        ))
 
     return results
 
