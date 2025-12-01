@@ -101,7 +101,7 @@ class LLMClient:
             return True
 
         if self.total_cost + estimated_cost > self.config.max_cost_per_scan:
-            logger.error(f"Budget exceeded: ${self.total_cost:.2f} / ${self.config.max_cost_per_scan:.2f}")
+            logger.error(f"Budget exceeded: ${self.total_cost:.2f} + ${estimated_cost:.2f} > ${self.config.max_cost_per_scan:.2f}")
             return False
 
         return True
@@ -119,10 +119,15 @@ class LLMClient:
 
         Returns:
             LLMResponse with generated content
+
+        Warning: Not thread-safe. Use locks if enabling concurrent access.
         """
         # Check budget
         if not self._check_budget():
-            raise RuntimeError("Budget exceeded for this scan")
+            raise RuntimeError(
+                f"LLM budget exceeded: ${self.total_cost:.4f} spent > ${self.config.max_cost_per_scan:.4f} limit. "
+                f"Increase budget with: LLMConfig(max_cost_per_scan={self.config.max_cost_per_scan * 2:.1f})"
+            )
 
         # Get appropriate model for task
         if task_type:
@@ -204,7 +209,16 @@ class LLMClient:
 
         Returns:
             Tuple of (parsed JSON object matching schema, full response content)
+
+        Warning: Not thread-safe. Use locks if enabling concurrent access.
         """
+        # Check budget
+        if not self._check_budget():
+            raise RuntimeError(
+                f"LLM budget exceeded: ${self.total_cost:.4f} spent > ${self.config.max_cost_per_scan:.4f} limit. "
+                f"Increase budget with: LLMConfig(max_cost_per_scan={self.config.max_cost_per_scan * 2:.1f})"
+            )
+
         # Get appropriate model
         if task_type:
             model_config = self.config.get_model_for_task(task_type)
@@ -224,9 +238,23 @@ class LLMClient:
             for attempt in range(self.config.max_retries):
                 try:
                     provider = self._get_provider(model)
+
+                    # Capture cost before call
+                    cost_before = provider.total_cost
+                    tokens_before = provider.total_tokens
+
                     result = provider.generate_structured(prompt, schema, system_prompt)
 
-                    logger.info(f"Structured generation successful: {model.provider}/{model.model_name}")
+                    # Calculate cost delta
+                    cost_delta = provider.total_cost - cost_before
+                    tokens_delta = provider.total_tokens - tokens_before
+
+                    # Track at client level
+                    self.total_cost += cost_delta
+                    self.request_count += 1
+
+                    logger.info(f"Structured generation successful: {model.provider}/{model.model_name} "
+                               f"(tokens: {tokens_delta}, cost: ${cost_delta:.4f})")
                     return result
 
                 except Exception as e:
