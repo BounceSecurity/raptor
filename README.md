@@ -29,6 +29,9 @@
 
 # RAPTOR - Autonomous Offensive/Defensive Security Research Framework, based on Claude Code
 
+[![Run in Smithery](https://smithery.ai/badge/skills/gadievron)](https://smithery.ai/skills?ns=gadievron&utm_source=github&utm_medium=badge)
+
+
 **Authors:** Gadi Evron, Daniel Cuthbert, Thomas Dullien (Halvar Flake), and Michael Bargury
 (@gadievron, @danielcuthbert, @thomasdullien, @mbrg)
 
