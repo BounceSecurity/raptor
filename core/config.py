@@ -42,13 +42,6 @@ class RaptorConfig:
     LLM_TIMEOUT = 120                # 2 minutes per LLM call
     SUBPROCESS_POLL_INTERVAL = 1     # 1 second
 
-    # Radare2 Configuration
-    RADARE2_PATH = "radare2"         # Path to radare2 executable (default: from PATH)
-    RADARE2_TIMEOUT = 300            # 5 minutes for radare2 commands
-    RADARE2_ANALYSIS_DEPTH = "aa"    # Analysis level: aa (basic, recommended), aaa (full), aaaa (deep)
-    RADARE2_ANALYSIS_TIMEOUT = 600   # 10 minutes for initial binary analysis
-    RADARE2_ENABLE = True            # Enable radare2 integration (fallback to objdump if False)
-
     # Resource Limits
     RESOURCE_READ_LIMIT = 5 * 1024 * 1024   # 5 MiB
     MAX_TAIL_BYTES = 2000                    # bytes of stdout/stderr in results
@@ -97,6 +90,9 @@ class RaptorConfig:
     ENV_OUT_DIR = "RAPTOR_OUT_DIR"
     ENV_JOB_ID = "RAPTOR_JOB_ID"
     ENV_LLM_CMD = "RAPTOR_LLM_CMD"
+
+    # LLM Provider Configuration
+    OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 
     # Proxy variables to strip for security
     PROXY_ENV_VARS = [

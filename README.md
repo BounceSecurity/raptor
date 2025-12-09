@@ -54,7 +54,8 @@ RAPTOR stands for Recursive Autonomous Penetration Testing and Observation Robot
 3. **Analyses** vulnerabilities using advanced LLM reasoning
 4. **Exploits** by generating proof-of-concepts
 5. **Patches** with code to fix vulnerabilities
-6. **Crash Analysis** with radare2, rr debugger, and function tracing
+6. **FFmpeg-specific** patching for Google's recent disclosure
+   (https://news.ycombinator.com/item?id=45891016)
 7. **OSS Forensics** for evidence-backed GitHub repository investigations
 8. **Reports** everything in structured formats
 
@@ -79,23 +80,6 @@ Beyond RAPTOR's potential for autonomous security research and community collabo
 demonstrates how Claude Code can be adapted for **any purpose**, with RAPTOR packages.
 
 ---
-
-## Recent Updates
-
-### December 4, 2025: Enhanced Binary Analysis with radare2
-
-RAPTOR now features comprehensive radare2 (r2) integration for advanced crash analysis:
-
-**New Capabilities:**
-- **Function Detection:** Automatic function discovery and analysis
-- **Disassembly:** Context-aware disassembly at crash addresses
-- **Decompilation:** Pseudo-C code generation (with r2-ghidra)
-- **Security Analysis:** Automatic detection of stack canaries, NX, PIE, ASLR
-- **Cross-References:** Call graph and xref analysis for crash context
-- **Performance:** 40% faster analysis, 50% fewer timeouts, auto-scaled by binary size
-
-**Architecture:** Optimized for reliability with inline analysis pattern ensuring consistent results across r2 versions.
-
 
 ### OSS Forensics Investigation
 
@@ -285,6 +269,34 @@ Model selection and API use is handled through Claude Code natively.
 **Note:** Exploit generation requires frontier models (Claude, GPT, or Gemini). Local
 models work for analysis but may produce non-compilable exploit code.
 
+### Environment Variables
+
+**LLM Configuration:**
+- `ANTHROPIC_API_KEY` - Anthropic Claude API key
+- `OPENAI_API_KEY` - OpenAI API key
+- `OLLAMA_HOST` - Ollama server URL (default: `http://localhost:11434`)
+
+**Ollama Examples:**
+```bash
+# Local Ollama (default)
+export OLLAMA_HOST=http://localhost:11434
+
+# Remote Ollama server
+export OLLAMA_HOST=https://ollama.example.com:11434
+
+# Remote with custom port
+export OLLAMA_HOST=http://192.168.1.100:8080
+```
+
+**Performance Tuning:**
+
+Remote Ollama servers automatically use longer retry delays (5 seconds vs 2 seconds for local) to account for network latency and processing time, reducing JSON parsing errors.
+
+| Server Type | Base Delay | Retry 1 | Retry 2 | Retry 3 |
+|-------------|------------|---------|---------|---------|
+| **Local** | 2.0s | 2s | 4s | 8s |
+| **Remote** | 5.0s | 5s | 10s | 20s |
+
 ---
 
 ## Python CLI (Alternative)
@@ -308,7 +320,6 @@ python3 raptor.py fuzz --binary /path/to/binary --duration 3600
 - **ARCHITECTURE.md** - Technical architecture details
 - **EXTENDING_LAUNCHER.md** - How to add new capabilities
 - **FUZZING_QUICKSTART.md** - Binary fuzzing guide
-- **RADARE2_INTEGRATION.md** - radare2 binary analysis guide
 - **.claude/commands/oss-forensics.md** - OSS forensics investigation guide
 - **DEPENDENCIES.md** - External tools and licenses
 - **tiers/personas/README.md** - All 9 expert personas

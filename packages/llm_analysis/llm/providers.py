@@ -227,9 +227,15 @@ class OllamaProvider(LLMProvider):
 
     def __init__(self, config: ModelConfig):
         super().__init__(config)
-        self.api_base = config.api_base or "http://localhost:11434"
+        if not config.api_base:
+            raise ValueError("Ollama api_base must be configured in ModelConfig")
+        self.api_base = config.api_base
         self.session = requests.Session()
         self.available_models = []
+
+        # Log initialization
+        logger.info(f"Initializing Ollama provider: {self.api_base}")
+        logger.debug(f"Ollama configuration: model={config.model_name}, timeout={config.timeout}s")
 
         # Verify Ollama is available and check models
         try:
@@ -247,8 +253,12 @@ class OllamaProvider(LLMProvider):
                 logger.warning(f"Ollama server returned {response.status_code} at {self.api_base}")
                 raise RuntimeError(f"Ollama not available: {response.status_code}")
         except requests.exceptions.RequestException as e:
-            logger.error(f"Cannot connect to Ollama at {self.api_base}: {e}")
-            logger.error("Make sure Ollama is running: ollama serve")
+            logger.error(f"Cannot connect to Ollama server at {self.api_base}: {e}")
+            if "localhost" in self.api_base or "127.0.0.1" in self.api_base:
+                logger.error("Make sure Ollama is running locally: ollama serve")
+            else:
+                logger.error(f"Check remote Ollama server is accessible: {self.api_base}")
+                logger.error("Verify network connectivity and firewall settings")
             raise RuntimeError(f"Ollama connection failed: {e}")
 
     def generate(self, prompt: str, system_prompt: Optional[str] = None,
@@ -274,14 +284,8 @@ class OllamaProvider(LLMProvider):
             if system_prompt:
                 payload["system"] = system_prompt
 
-            # Add format parameter for structured output (Ollama v0.5+)
-            # This enables GBNF grammar-based token constraint during generation
-            if "format" in kwargs:
-                payload["format"] = kwargs["format"]
-                logger.debug("Using Ollama format parameter for structured output")
-
             logger.debug(f"Sending request to Ollama: {self.api_base}/api/generate")
-            logger.debug(f"Model: {self.config.model_name}")
+            logger.debug(f"Model: {self.config.model_name}, timeout: {self.config.timeout}s")
 
             response = self.session.post(
                 f"{self.api_base}/api/generate",
@@ -327,10 +331,17 @@ class OllamaProvider(LLMProvider):
 
         except requests.exceptions.Timeout:
             logger.error(f"Ollama request timed out after {self.config.timeout}s")
+            if "localhost" not in self.api_base and "127.0.0.1" not in self.api_base:
+                logger.error(f"Remote server {self.api_base} may be slow or overloaded")
+                logger.error("Consider increasing timeout in ModelConfig")
             raise
         except requests.exceptions.ConnectionError as e:
             logger.error(f"Cannot connect to Ollama at {self.api_base}")
-            logger.error("Make sure Ollama is running: ollama serve")
+            if "localhost" in self.api_base or "127.0.0.1" in self.api_base:
+                logger.error("Make sure Ollama is running locally: ollama serve")
+            else:
+                logger.error(f"Check remote Ollama server is accessible: {self.api_base}")
+                logger.error("Verify network connectivity and firewall settings")
             raise RuntimeError(f"Ollama connection failed: {e}")
         except Exception as e:
             logger.error(f"Ollama API error: {e}")
@@ -338,11 +349,7 @@ class OllamaProvider(LLMProvider):
 
     def generate_structured(self, prompt: str, schema: Dict[str, Any],
                            system_prompt: Optional[str] = None) -> Tuple[Dict[str, Any], str]:
-        """Generate structured JSON output.
-
-        Uses Ollama's native format parameter (v0.5+) for grammar-constrained generation.
-        Falls back to extensive cleanup pipeline for older versions or malformed output.
-        """
+        """Generate structured JSON output."""
         structured_prompt = f"""{prompt}
 
 You MUST respond with valid JSON matching this exact schema:
@@ -350,21 +357,11 @@ You MUST respond with valid JSON matching this exact schema:
 
 Respond with ONLY the JSON object, no markdown, no other text."""
 
-        # Use format="json" for Ollama GBNF constraint (not schema dict)
-        response = self.generate(structured_prompt, system_prompt, format="json")
+        response = self.generate(structured_prompt, system_prompt)
 
-        # Parse JSON from response
+                # Parse JSON from response
         try:
             content = response.content.strip()
-
-            # Fast path: Try parsing directly (format parameter should produce valid JSON)
-            try:
-                parsed = json.loads(content)
-                logger.debug("✓ JSON parsed directly (format parameter succeeded)")
-                return parsed, response.content
-            except json.JSONDecodeError as e:
-                logger.debug(f"→ Direct JSON parse failed ({e.msg}), applying cleanup pipeline")
-                # Fall through to cleanup pipeline below
 
             #logger.debug(f"RAW RESPONSE FROM OLLAMA: {content[:1000]}") #useful if the ollama response is malformed
             # use for debugging malformed responses only otherwise it messes output up 
@@ -375,6 +372,7 @@ Respond with ONLY the JSON object, no markdown, no other text."""
                 # Remove everything between <think> and </think> (case insensitive)
                 content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL | re.IGNORECASE)
 
+            # Remove comments from JSON (Ollama code models add them)
             content = re.sub(r'//.*?$', '', content, flags=re.MULTILINE)  # JavaScript //
             content = re.sub(r'#.*?$', '', content, flags=re.MULTILINE)   # Python #
             content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)  # C /* */

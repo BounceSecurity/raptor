@@ -53,6 +53,15 @@ For example CodeQL does not allow commerical use.
 - Usage: RAPTOR calls `codeql` command for deep analysis
 - Note: User installs separately
 
+**Ollama** (Local or remote model server)
+- Install locally: Download from https://ollama.ai
+- Configure remote: Set `OLLAMA_HOST` environment variable
+- Default: `http://localhost:11434`
+- License: MIT
+- Source: https://github.com/ollama/ollama
+- Usage: RAPTOR connects to Ollama server for local model inference
+- Note: User installs separately, supports both local and remote servers
+
 **rr** (Record-replay debugger)
 - Install: `apt install rr` (Linux) or build from https://github.com/rr-debugger/rr
 - License: MIT
@@ -73,14 +82,6 @@ For example CodeQL does not allow commerical use.
 - Source: https://github.com/google/sanitizers
 - Usage: RAPTOR detects ASAN builds for enhanced crash diagnostics
 - Note: Compile-time instrumentation, enabled via compiler flag
-
-**radare2** (Binary analysis framework)
-- Install: `brew install radare2` or `apt install radare2`
-- License: LGPL-3.0
-- Source: https://github.com/radareorg/radare2
-- Usage: RAPTOR uses for enhanced binary analysis in /crash-analysis command
-- Features: Disassembly, decompilation, cross-references, security analysis
-- Note: User installs separately, optional (falls back to objdump if unavailable)
 
 **Google Cloud BigQuery** (Data warehouse - for OSS forensics)
 - Setup: Requires `GOOGLE_APPLICATION_CREDENTIALS` environment variable
