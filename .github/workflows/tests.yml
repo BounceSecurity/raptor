@@ -6,10 +6,14 @@ on:
   push:
     branches: [ "**" ]
 
+env:
+  PYTHON_VERSION: '3.12'
+  VENV_PATH: .venv
+
 jobs:
-  unit:
+  deps:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -17,20 +21,50 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-          cache: 'pip'
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install dependencies
+      - name: Create venv and install deps
         run: |
+          python -m venv $VENV_PATH
+          source $VENV_PATH/bin/activate
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
+      - name: Upload venv for this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: venv-${{ github.run_id }}
+          path: ${{ env.VENV_PATH }}
+          if-no-files-found: error
+
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: deps
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Download venv artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: venv-${{ github.run_id }}
+          path: .
+
       - name: Run unit tests
-        run: pytest packages/exploit_feasibility/tests
+        run: |
+          source $VENV_PATH/bin/activate
+          pytest packages/exploit_feasibility/tests
 
   cli_fast:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    needs: deps
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -38,13 +72,13 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-          cache: 'pip'
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
+      - name: Download venv artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: venv-${{ github.run_id }}
+          path: .
 
       - name: Make test scripts executable
         run: chmod +x test/*.sh
@@ -52,12 +86,14 @@ jobs:
       - name: Run fast CLI suites
         run: |
           set -euo pipefail
+          source $VENV_PATH/bin/activate
           bash test/test_workflows.sh
           bash test/real_tests_fast.sh
 
   cli_real:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    needs: deps
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -65,16 +101,18 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-          cache: 'pip'
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
+      - name: Download venv artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: venv-${{ github.run_id }}
+          path: .
 
       - name: Make test scripts executable
         run: chmod +x test/*.sh
 
       - name: Run deeper functional suite
-        run: bash test/real_tests.sh
+        run: |
+          source $VENV_PATH/bin/activate
+          bash test/real_tests.sh
