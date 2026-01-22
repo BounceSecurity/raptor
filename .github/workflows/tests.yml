@@ -59,6 +59,9 @@ jobs:
           name: venv-${{ github.run_id }}
           path: ${{ env.VENV_PATH }}
 
+      - name: Restore venv permissions
+        run: chmod +x $VENV_PATH/bin/*
+
       - name: Run unit tests
         run: |
           source $VENV_PATH/bin/activate

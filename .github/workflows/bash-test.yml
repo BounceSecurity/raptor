@@ -31,6 +31,9 @@ jobs:
           name: ${{ inputs.venv_artifact_name }}
           path: .venv
 
+      - name: Restore venv permissions
+        run: chmod +x .venv/bin/*
+
       - name: Make test scripts executable
         run: chmod +x test/*.sh
 
