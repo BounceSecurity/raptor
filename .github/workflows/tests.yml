@@ -40,7 +40,7 @@ jobs:
           path: ${{ env.VENV_PATH }}
           include-hidden-files: true
 
-  unit:
+  python-unit-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: deps
@@ -66,35 +66,35 @@ jobs:
 
   test-workflows:
     needs: deps
-    uses: ./.github/workflows/run-test.yml
+    uses: ./.github/workflows/bash-test.yml
     with:
       test_script: test_workflows.sh
       venv_artifact_name: venv-${{ github.run_id }}
 
   test-fast:
     needs: deps
-    uses: ./.github/workflows/run-test.yml
+    uses: ./.github/workflows/bash-test.yml
     with:
       test_script: real_tests_fast.sh
       venv_artifact_name: venv-${{ github.run_id }}
 
   test-real:
     needs: deps
-    uses: ./.github/workflows/run-test.yml
+    uses: ./.github/workflows/bash-test.yml
     with:
       test_script: real_tests.sh
       venv_artifact_name: venv-${{ github.run_id }}
 
   test-comprehensive:
     needs: deps
-    uses: ./.github/workflows/run-test.yml
+    uses: ./.github/workflows/bash-test.yml
     with:
       test_script: comprehensive_test.sh
       venv_artifact_name: venv-${{ github.run_id }}
 
   test-integration:
     needs: deps
-    uses: ./.github/workflows/run-test.yml
+    uses: ./.github/workflows/bash-test.yml
     with:
       test_script: integration_tests.sh
       venv_artifact_name: venv-${{ github.run_id }}
