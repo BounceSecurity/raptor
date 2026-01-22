@@ -95,9 +95,7 @@ jobs:
       test_script: comprehensive_test.sh
       venv_artifact_name: venv-${{ github.run_id }}
 
-  # Integration tests are currently disabled due to various issues
   test-integration:
-    if: false
     needs: deps
     uses: ./.github/workflows/bash-test.yml
     with:
