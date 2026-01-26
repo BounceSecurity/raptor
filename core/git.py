@@ -12,7 +12,6 @@ from core.logging import get_logger
 
 logger = get_logger()
 
-
 def run(cmd, cwd=None, timeout=RaptorConfig.DEFAULT_TIMEOUT, env=None):
     """Execute a command and return results."""
     p = subprocess.run(
