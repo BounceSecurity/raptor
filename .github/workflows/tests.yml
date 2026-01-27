@@ -44,7 +44,6 @@ jobs:
           name: venv-${{ github.run_id }}
           path: ${{ env.VENV_PATH }}
           include-hidden-files: true
-          retention-days: 1
 
   python-unit-tests:
     runs-on: ubuntu-latest
@@ -107,3 +106,17 @@ jobs:
     with:
       test_script: integration_tests.sh
       venv_artifact_name: venv-${{ github.run_id }}
+
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+     actions: write
+    needs: [python-unit-tests, test-workflows, test-fast, test-real, test-comprehensive, test-integration]
+    if: always()
+    steps:
+      - name: Delete venv artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ARTIFACT_ID=$(gh api /repos/${{ github.repository }}/actions/artifacts?name=venv-${{ github.run_id }} --jq '.artifacts[0].id')
+          gh api -X DELETE /repos/${{ github.repository }}/actions/artifacts/$ARTIFACT_ID
