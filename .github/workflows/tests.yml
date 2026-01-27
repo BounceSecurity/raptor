@@ -68,7 +68,9 @@ jobs:
           path: ${{ env.VENV_PATH }}
 
       - name: Restore venv permissions
-        run: chmod +x $VENV_PATH/bin/*
+        run: |
+          chmod -R +x $VENV_PATH/bin/*
+          find $VENV_PATH -type f -name "osemgrep*" -exec chmod +x {} \; || true
 
       - name: Run unit tests
         run: |
@@ -131,7 +133,9 @@ jobs:
           path: ${{ env.VENV_PATH }}
 
       - name: Restore venv permissions
-        run: chmod +x $VENV_PATH/bin/*
+        run: |
+          chmod -R +x $VENV_PATH/bin/*
+          find $VENV_PATH -type f -name "osemgrep*" -exec chmod +x {} \; || true
 
       - name: Install system dependencies
         run: |
@@ -200,48 +204,14 @@ jobs:
 
   truly-real-tests:
     name: Truly Real Tests (Semgrep Only)
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
     needs: deps
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Download venv artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: venv-${{ github.run_id }}
-          path: ${{ env.VENV_PATH }}
-
-      - name: Restore venv permissions
-        run: chmod +x $VENV_PATH/bin/*
-
-      - name: Verify Semgrep is available
-        run: |
-          source $VENV_PATH/bin/activate
-          semgrep --version
-
-      - name: Make test scripts executable
-        run: chmod +x test/*.sh
-
-      - name: Run truly_real_tests.sh
-        run: |
-          source $VENV_PATH/bin/activate
-          bash test/truly_real_tests.sh
-        env:
-          PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/packages
-
-      - name: Upload test artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: truly-real-test-output
-          path: |
-            truly_real_test_out/
-            out/
-          retention-days: 7
+    uses: ./.github/workflows/bash-test.yml
+    with:
+      test_script: truly_real_tests.sh
+      venv_artifact_name: venv-${{ github.run_id }}
+      verify_semgrep: true
+      env_pythonpath: ${{ github.workspace }}:${{ github.workspace }}/packages
+      upload_artifacts: |
+        truly_real_test_out/
+        out/
+      artifact_name: truly-real-test-output

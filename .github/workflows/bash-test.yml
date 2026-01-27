@@ -11,6 +11,23 @@ on:
         description: 'Name of the venv artifact to download'
         required: true
         type: string
+      verify_semgrep:
+        description: 'Verify semgrep is available before running tests'
+        required: false
+        type: boolean
+        default: false
+      env_pythonpath:
+        description: 'PYTHONPATH environment variable value'
+        required: false
+        type: string
+      upload_artifacts:
+        description: 'Upload test artifacts (YAML list format)'
+        required: false
+        type: string
+      artifact_name:
+        description: 'Name for uploaded artifacts'
+        required: false
+        type: string
 
 jobs:
   bash-test:
@@ -32,7 +49,15 @@ jobs:
           path: .venv
 
       - name: Restore venv permissions
-        run: chmod +x .venv/bin/*
+        run: |
+          chmod -R +x .venv/bin/*
+          find .venv -type f -name "osemgrep*" -exec chmod +x {} \; || true
+
+      - name: Verify Semgrep is available
+        if: inputs.verify_semgrep == true
+        run: |
+          source .venv/bin/activate
+          semgrep --version
 
       - name: Make test scripts executable
         run: chmod +x test/*.sh
@@ -41,3 +66,14 @@ jobs:
         run: |
           source .venv/bin/activate
           bash test/${{ inputs.test_script }}
+        env:
+          PYTHONPATH: ${{ inputs.env_pythonpath }}
+
+      - name: Upload test artifacts
+        if: always() && inputs.upload_artifacts != '' && inputs.artifact_name != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: |
+            ${{ inputs.upload_artifacts }}
+          retention-days: 7
