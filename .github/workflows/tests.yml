@@ -181,10 +181,10 @@ jobs:
       - name: Run integration_with_tools.sh
         run: |
           source $VENV_PATH/bin/activate
+          export PATH="/opt/codeql:$PATH"
           bash test/integration_with_tools.sh
         env:
           PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/packages
-          PATH: /opt/codeql:$PATH
 
       - name: Upload test artifacts
         if: always()
