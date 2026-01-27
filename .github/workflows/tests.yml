@@ -34,6 +34,8 @@ jobs:
           source $VENV_PATH/bin/activate
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
+          pip install --no-cache-dir semgrep
+          semgrep --version
 
       - name: Verify venv exists
         run: test -d "$VENV_PATH" || (echo "venv missing at $VENV_PATH" && exit 1)
@@ -107,3 +109,139 @@ jobs:
     with:
       test_script: integration_tests.sh
       venv_artifact_name: venv-${{ github.run_id }}
+
+  integration-with-tools:
+    name: Full Integration Tests (All Tools)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: deps
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Download venv artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: venv-${{ github.run_id }}
+          path: ${{ env.VENV_PATH }}
+
+      - name: Restore venv permissions
+        run: chmod +x $VENV_PATH/bin/*
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get install -y --no-install-recommends \
+            git \
+            build-essential \
+            gcc \
+            g++ \
+            make \
+            unzip \
+            curl \
+            gdb \
+            gdb-multiarch \
+            afl++ \
+            afl++-clang \
+            lldb || echo "lldb optional on Linux"
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/*
+
+      - name: Verify Semgrep is available
+        run: |
+          source $VENV_PATH/bin/activate
+          semgrep --version
+
+      - name: Install CodeQL CLI
+        run: |
+          CODEQL_VERSION=2.15.5
+          mkdir -p /opt/codeql
+          curl -L "https://github.com/github/codeql-cli-binaries/releases/download/v${CODEQL_VERSION}/codeql-linux64.zip" -o /tmp/codeql.zip
+          unzip /tmp/codeql.zip -d /opt
+          rm /tmp/codeql.zip
+          sudo ln -sf /opt/codeql/codeql /usr/local/bin/codeql
+          codeql version
+
+      - name: Verify tools installation
+        run: |
+          source $VENV_PATH/bin/activate
+          semgrep --version
+          codeql version
+          afl-fuzz -v || echo "AFL++ installed"
+          gdb --version
+          lldb --version || echo "LLDB optional"
+
+      - name: Make test scripts executable
+        run: chmod +x test/*.sh
+
+      - name: Run integration_with_tools.sh
+        run: |
+          source $VENV_PATH/bin/activate
+          bash test/integration_with_tools.sh
+        env:
+          PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/packages
+          PATH: /opt/codeql:$PATH
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-output
+          path: |
+            integration_test_out/
+            out/
+          retention-days: 7
+
+  truly-real-tests:
+    name: Truly Real Tests (Semgrep Only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: deps
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Download venv artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: venv-${{ github.run_id }}
+          path: ${{ env.VENV_PATH }}
+
+      - name: Restore venv permissions
+        run: chmod +x $VENV_PATH/bin/*
+
+      - name: Verify Semgrep is available
+        run: |
+          source $VENV_PATH/bin/activate
+          semgrep --version
+
+      - name: Make test scripts executable
+        run: chmod +x test/*.sh
+
+      - name: Run truly_real_tests.sh
+        run: |
+          source $VENV_PATH/bin/activate
+          bash test/truly_real_tests.sh
+        env:
+          PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/packages
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: truly-real-test-output
+          path: |
+            truly_real_test_out/
+            out/
+          retention-days: 7
