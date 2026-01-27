@@ -202,14 +202,28 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/packages
           AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: 1
 
+      - name: Zip test artifacts
+        if: always()
+        run: |
+          # Zip artifacts to handle invalid characters in AFL++ crash filenames
+          mkdir -p artifact_upload
+          if [ -d integration_test_out ]; then
+            cd integration_test_out
+            zip -r ../artifact_upload/integration_test_out.zip . -q || echo "No files to zip in integration_test_out"
+            cd ..
+          fi
+          if [ -d out ]; then
+            cd out
+            zip -r ../artifact_upload/out.zip . -q || echo "No files to zip in out"
+            cd ..
+          fi
+
       - name: Upload test artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: integration-test-output
-          path: |
-            integration_test_out/
-            out/
+          path: artifact_upload/
           retention-days: 7
 
   test-truly-real:
