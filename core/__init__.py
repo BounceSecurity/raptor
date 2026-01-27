@@ -1,1 +1,47 @@
-"""RAPTOR Core Utilities"""
+"""
+RAPTOR Core Utilities
+
+Re-exports key components for easy importing.
+"""
+
+from core.config import RaptorConfig
+from core.logging import get_logger
+from core.sarif.parser import (
+    deduplicate_findings,
+    parse_sarif_findings,
+    validate_sarif,
+    generate_scan_metrics,
+    sanitize_finding_for_display,
+)
+
+# Git utilities (extracted in refactoring)
+from core.git import (
+    validate_repository,
+    clone_repository,
+    get_repository_metadata,
+)
+
+# Semgrep utilities (extracted in refactoring)
+from core.semgrep import run_semgrep
+
+# LLM utilities (moved in refactoring)
+from core.llm import LLMClient, LLMConfig
+
+__all__ = [
+    "RaptorConfig",
+    "get_logger",
+    "deduplicate_findings",
+    "parse_sarif_findings",
+    "validate_sarif",
+    "generate_scan_metrics",
+    "sanitize_finding_for_display",
+    # Git utilities
+    "validate_repository",
+    "clone_repository",
+    "get_repository_metadata",
+    # Semgrep utilities
+    "run_semgrep",
+    # LLM utilities
+    "LLMClient",
+    "LLMConfig",
+]
