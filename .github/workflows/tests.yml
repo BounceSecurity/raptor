@@ -166,6 +166,15 @@ jobs:
           sudo ln -sf /opt/codeql/codeql /usr/local/bin/codeql
           codeql version
 
+      - name: Download CodeQL query packs
+        run: |
+          export PATH="/opt/codeql:$PATH"
+          # Download Python query pack (required for python-security-and-quality.qls)
+          # CodeQL packs are downloaded to the package cache automatically
+          codeql pack download codeql/python-queries
+          # Verify the pack was downloaded
+          codeql pack list || echo "Pack list command not available"
+
       - name: Verify tools installation
         run: |
           source $VENV_PATH/bin/activate
@@ -174,6 +183,12 @@ jobs:
           afl-fuzz -v || echo "AFL++ installed"
           gdb --version
           lldb --version || echo "LLDB optional"
+
+      - name: Configure AFL++ core pattern
+        run: |
+          # Fix core_pattern for AFL++ crash detection
+          # This prevents AFL++ from having issues with external core dump handlers
+          echo core | sudo tee /proc/sys/kernel/core_pattern > /dev/null || echo "Warning: Could not set core_pattern"
 
       - name: Make test scripts executable
         run: chmod +x test/*.sh
@@ -185,6 +200,7 @@ jobs:
           bash test/integration_with_tools.sh
         env:
           PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/packages
+          AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: 1
 
       - name: Upload test artifacts
         if: always()
