@@ -49,9 +49,7 @@ jobs:
           path: .venv
 
       - name: Restore venv permissions
-        run: |
-          chmod -R +x .venv/bin/*
-          find .venv -type f -name "osemgrep*" -exec chmod +x {} \; || true
+        run: bash .github/scripts/restore-venv-permissions.sh .venv
 
       - name: Verify Semgrep is available
         if: inputs.verify_semgrep == true

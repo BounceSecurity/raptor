@@ -68,9 +68,7 @@ jobs:
           path: ${{ env.VENV_PATH }}
 
       - name: Restore venv permissions
-        run: |
-          chmod -R +x $VENV_PATH/bin/*
-          find $VENV_PATH -type f -name "osemgrep*" -exec chmod +x {} \; || true
+        run: bash .github/scripts/restore-venv-permissions.sh $VENV_PATH
 
       - name: Run unit tests
         run: |
@@ -112,8 +110,7 @@ jobs:
       test_script: integration_tests.sh
       venv_artifact_name: venv-${{ github.run_id }}
 
-  integration-with-tools:
-    name: Full Integration Tests (All Tools)
+  test-integration-with-tools:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: deps
@@ -133,9 +130,7 @@ jobs:
           path: ${{ env.VENV_PATH }}
 
       - name: Restore venv permissions
-        run: |
-          chmod -R +x $VENV_PATH/bin/*
-          find $VENV_PATH -type f -name "osemgrep*" -exec chmod +x {} \; || true
+        run: bash .github/scripts/restore-venv-permissions.sh $VENV_PATH
 
       - name: Install system dependencies
         run: |
@@ -152,7 +147,6 @@ jobs:
             gdb \
             gdb-multiarch \
             afl++ \
-            afl++-clang \
             lldb || echo "lldb optional on Linux"
           sudo apt-get clean
           sudo rm -rf /var/lib/apt/lists/*
@@ -202,8 +196,7 @@ jobs:
             out/
           retention-days: 7
 
-  truly-real-tests:
-    name: Truly Real Tests (Semgrep Only)
+  test-truly-real:
     needs: deps
     uses: ./.github/workflows/bash-test.yml
     with:
