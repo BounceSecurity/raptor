@@ -169,11 +169,14 @@ jobs:
       - name: Download CodeQL query packs
         run: |
           export PATH="/opt/codeql:$PATH"
-          # Download Python query pack (required for python-security-and-quality.qls)
-          # CodeQL packs are downloaded to the package cache automatically
+          # Download Python query pack and its required dependency
+          # codeql/python-queries depends on codeql/python-all
+          # Download both to ensure compatible versions
+          codeql pack download codeql/python-all
           codeql pack download codeql/python-queries
-          # Verify the pack was downloaded
-          codeql pack list || echo "Pack list command not available"
+          # Verify packs are available
+          echo "Downloaded CodeQL packs:"
+          codeql pack list || echo "Pack list not available"
 
       - name: Verify tools installation
         run: |
