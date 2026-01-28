@@ -10,12 +10,18 @@ rules:
           - pattern: request.POST[$_]
           - pattern: flask.request.args[$_]
           - pattern: flask.request.form[$_]
+          - pattern: request.form.get(...)
+          - pattern: request.args.get(...)
+          - pattern: flask.request.form.get(...)
+          - pattern: flask.request.args.get(...)
           - pattern: input(...)
           - pattern: os.environ[$_]
     pattern-sinks:
       - pattern-either:
           - pattern: subprocess.run($CMD, ..., shell=True, ...)
           - pattern: subprocess.Popen($CMD, ..., shell=True, ...)
+          - pattern: subprocess.run(f"...", shell=True, ...)
+          - pattern: subprocess.run($CMD + ..., shell=True, ...)
           - pattern: os.system($CMD)
           - pattern: os.popen($CMD)
     pattern-sanitizers:

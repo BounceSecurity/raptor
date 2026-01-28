@@ -78,8 +78,14 @@ if [ -d "$PROJECT_ROOT/out" ]; then
     if [ -n "$FINDINGS" ]; then
         test_case "Scan produced SARIF output" "PASS"
 
-        # Count actual findings
-        FINDING_COUNT=$(grep -c '"ruleId"' $FINDINGS 2>/dev/null || echo "0")
+        # Count actual findings across all SARIF files
+        FINDING_COUNT=0
+        for sarif_file in $FINDINGS; do
+            if [ -f "$sarif_file" ] && [ -s "$sarif_file" ]; then
+                count=$(grep -c '"ruleId"' "$sarif_file" 2>/dev/null || echo "0")
+                FINDING_COUNT=$((FINDING_COUNT + count))
+            fi
+        done
         test_case "SARIF contains vulnerability findings ($FINDING_COUNT detected)" "PASS"
     else
         test_case "Scan produced SARIF output" "FAIL" "No SARIF files generated"
@@ -112,8 +118,9 @@ else
 fi
 
 # Test 2.3: Semgrep should detect command injection
-if [ -f "$FINDINGS" ]; then
-    if grep -q "shell" "$FINDINGS" || grep -q "subprocess" "$FINDINGS"; then
+FIRST_FINDING=$(echo "$FINDINGS" | head -1)
+if [ -n "$FIRST_FINDING" ] && [ -f "$FIRST_FINDING" ] && [ -s "$FIRST_FINDING" ]; then
+    if grep -q "shell\|subprocess" "$FIRST_FINDING"; then
         test_case "Semgrep detects shell injection vulnerability" "PASS"
     else
         test_case "Semgrep detects shell injection vulnerability" "SKIP" "Not in default rules"
@@ -127,8 +134,8 @@ if grep -q 'PASSWORD\|SECRET.*="' "$TEST_DATA/python_sql_injection.py"; then
     test_case "Sample Python has hardcoded secrets" "PASS"
 fi
 
-if [ -f "$FINDINGS" ]; then
-    if grep -q "password\|secret\|token" "$FINDINGS" -i; then
+if [ -n "$FIRST_FINDING" ] && [ -f "$FIRST_FINDING" ] && [ -s "$FIRST_FINDING" ]; then
+    if grep -q "password\|secret\|token" "$FIRST_FINDING" -i; then
         test_case "Semgrep detects hardcoded secrets" "PASS"
     else
         test_case "Semgrep detects hardcoded secrets" "SKIP" "Depends on rules"
@@ -148,13 +155,27 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo -e "\n${BLUE}Scanning with different policy groups...${NC}"
 rm -rf "$PROJECT_ROOT/out"
 python3 "$PROJECT_ROOT/raptor.py" scan --repo "$TEST_DATA" --policy_groups secrets 2>&1 > /dev/null
-SECRETS_SARIF=$(find "$PROJECT_ROOT/out" -name "*.sarif" -type f 2>/dev/null | head -1)
-SECRETS_COUNT=$(grep -c '"ruleId"' "$SECRETS_SARIF" 2>/dev/null || echo "0")
+SECRETS_SARIF=$(find "$PROJECT_ROOT/out" -name "combined.sarif" -type f 2>/dev/null | head -1)
+# Fallback to any SARIF file if combined.sarif not found
+if [ -z "$SECRETS_SARIF" ] || [ ! -f "$SECRETS_SARIF" ]; then
+    SECRETS_SARIF=$(find "$PROJECT_ROOT/out" -name "*.sarif" -type f 2>/dev/null | head -1)
+fi
+SECRETS_COUNT=0
+if [ -n "$SECRETS_SARIF" ] && [ -f "$SECRETS_SARIF" ] && [ -s "$SECRETS_SARIF" ]; then
+    SECRETS_COUNT=$(grep -c '"ruleId"' "$SECRETS_SARIF" 2>/dev/null || echo "0")
+fi
 
 rm -rf "$PROJECT_ROOT/out"
 python3 "$PROJECT_ROOT/raptor.py" scan --repo "$TEST_DATA" --policy_groups injection 2>&1 > /dev/null
-INJECTION_SARIF=$(find "$PROJECT_ROOT/out" -name "*.sarif" -type f 2>/dev/null | head -1)
-INJECTION_COUNT=$(grep -c '"ruleId"' "$INJECTION_SARIF" 2>/dev/null || echo "0")
+INJECTION_SARIF=$(find "$PROJECT_ROOT/out" -name "combined.sarif" -type f 2>/dev/null | head -1)
+# Fallback to any SARIF file if combined.sarif not found
+if [ -z "$INJECTION_SARIF" ] || [ ! -f "$INJECTION_SARIF" ]; then
+    INJECTION_SARIF=$(find "$PROJECT_ROOT/out" -name "*.sarif" -type f 2>/dev/null | head -1)
+fi
+INJECTION_COUNT=0
+if [ -n "$INJECTION_SARIF" ] && [ -f "$INJECTION_SARIF" ] && [ -s "$INJECTION_SARIF" ]; then
+    INJECTION_COUNT=$(grep -c '"ruleId"' "$INJECTION_SARIF" 2>/dev/null || echo "0")
+fi
 
 if [ "$SECRETS_COUNT" != "$INJECTION_COUNT" ]; then
     test_case "Policy groups filter results (secrets=$SECRETS_COUNT, injection=$INJECTION_COUNT)" "PASS"
