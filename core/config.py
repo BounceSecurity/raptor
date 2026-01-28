@@ -94,6 +94,26 @@ class RaptorConfig:
     # LLM Provider Configuration
     OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 
+    # OpenCode Configuration
+    OPENCODE_SERVER_URL = os.getenv("OPENCODE_SERVER_URL", "http://localhost:8080")
+    OPENCODE_ENABLE_LSP = os.getenv("OPENCODE_ENABLE_LSP", "true").lower() == "true"
+    OPENCODE_LSP_LANGUAGES = [
+        "python", "javascript", "typescript", "java",
+        "go", "rust", "cpp", "c", "ruby", "php"
+    ]
+    OPENCODE_CACHE_ENABLED = True
+    OPENCODE_CACHE_DIR = BASE_OUT_DIR / "opencode_cache"
+    OPENCODE_TIMEOUT = 30  # seconds for LSP operations
+    OPENCODE_MAX_WORKERS = 2  # parallel LSP server connections
+    OPENCODE_SERVER_BINARY = os.getenv("OPENCODE_SERVER_BINARY")  # Custom path if needed
+    OPENCODE_STARTUP_TIMEOUT = 30  # seconds to wait for server startup
+    OPENCODE_AUTO_INSTALL = os.getenv("OPENCODE_AUTO_INSTALL", "true").lower() == "true"
+    OPENCODE_BIN_DIR = BASE_OUT_DIR / "opencode_bin"  # Directory for downloaded binaries
+    OPENCODE_RELEASE_URL = os.getenv(
+        "OPENCODE_RELEASE_URL",
+        "https://github.com/anomalyco/opencode/releases/latest"
+    )
+
     # Proxy variables to strip for security
     PROXY_ENV_VARS = [
         "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY",
@@ -175,6 +195,8 @@ class RaptorConfig:
             RaptorConfig.SCHEMAS_DIR,
             RaptorConfig.CODEQL_DB_DIR,
             RaptorConfig.CODEQL_SUITES_DIR,
+            RaptorConfig.OPENCODE_CACHE_DIR,
+            RaptorConfig.OPENCODE_BIN_DIR,
         ]
         for directory in directories:
             directory.mkdir(parents=True, exist_ok=True)
