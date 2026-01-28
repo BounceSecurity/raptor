@@ -988,7 +988,7 @@ Balance security with usability and performance."""
         # If no code block, return content as-is
         return content.strip()
 
-    def process_findings(self, sarif_paths: List[str], max_findings: int = 10) -> Dict[str, Any]:
+    def process_findings(self, sarif_paths: List[str], max_findings: int = 10, skip_exploits: bool = False, skip_patches: bool = False) -> Dict[str, Any]:
         """Process findings with full LLM-powered autonomous workflow."""
         start_time = time.time()
 
@@ -1056,13 +1056,21 @@ Balance security with usability and performance."""
                     if vuln.exploitable:
                         exploitable += 1
 
-                        # 2. Generate exploit using LLM
-                        if self.generate_exploit(vuln):
-                            exploits_generated += 1
+                        # 2. Generate exploit using LLM (unless skipped)
+                        if not skip_exploits:
+                            if self.generate_exploit(vuln):
+                                exploits_generated += 1
+                        else:
+                            logger.debug(f"⊘ Skipping exploit generation (--no-exploits flag)")
+                            vuln.exploit_code = None
 
-                        # 3. Generate patch using LLM (only for exploitable)
-                        if self.generate_patch(vuln):
-                            patches_generated += 1
+                        # 3. Generate patch using LLM (only for exploitable, unless skipped)
+                        if not skip_patches:
+                            if self.generate_patch(vuln):
+                                patches_generated += 1
+                        else:
+                            logger.debug(f"⊘ Skipping patch generation (--no-patches flag)")
+                            vuln.patch_code = None
                     else:
                         logger.debug(f"⊘ Skipping patch generation (not exploitable)")
 
@@ -1133,6 +1141,8 @@ def main() -> None:
     ap.add_argument("--sarif", nargs="+", required=True, help="SARIF files")
     ap.add_argument("--out", help="Output directory")
     ap.add_argument("--max-findings", type=int, default=10, help="Max findings to process")
+    ap.add_argument("--no-exploits", action="store_true", help="Skip exploit generation")
+    ap.add_argument("--no-patches", action="store_true", help="Skip patch generation")
 
     args = ap.parse_args()
 
@@ -1147,7 +1157,7 @@ def main() -> None:
     agent = AutonomousSecurityAgentV2(repo_path, out_dir)
 
     # Process findings
-    report = agent.process_findings(args.sarif, args.max_findings)
+    report = agent.process_findings(args.sarif, args.max_findings, skip_exploits=args.no_exploits, skip_patches=args.no_patches)
 
     print("\n" + "=" * 70)
     print("Autonomous Security Agent Report")

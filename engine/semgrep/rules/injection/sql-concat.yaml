@@ -6,6 +6,10 @@ rules:
     pattern-either:
       - pattern: executeQuery("SELECT " + $X + " FROM " + $Y)
       - pattern: query = "SELECT " + ...
+      - pattern: $QUERY = "SELECT" + ... + $USER_INPUT
+      - pattern: $QUERY = ... + $USER_INPUT + ...
+      - pattern: $QUERY = $STR + $USER_INPUT
+      - pattern: $QUERY = "..." + $VAR
     metadata:
       cwe: ["CWE-89"]
       asvs: ["V5.1"]
@@ -21,12 +25,18 @@ rules:
           - pattern: request.POST[$_]
           - pattern: flask.request.args[$_]
           - pattern: flask.request.form[$_]
+          - pattern: request.form.get(...)
+          - pattern: request.args.get(...)
+          - pattern: flask.request.form.get(...)
+          - pattern: flask.request.args.get(...)
           - pattern: input(...)
           - pattern: os.environ[$_]
     pattern-sinks:
       - pattern-either:
           - pattern: $DB.execute($QUERY)
           - pattern: $DB.executemany($QUERY)
+          - pattern: $CURSOR.execute($QUERY)
+          - pattern: $CURSOR.executemany($QUERY)
     pattern-sanitizers:
       - pattern: psycopg2.sql.SQL(...)
       - pattern: sqlalchemy.text(...)
