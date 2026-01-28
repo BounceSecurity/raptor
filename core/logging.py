@@ -8,6 +8,7 @@ and machine-parsable JSON audit trails.
 
 import json
 import logging
+import os
 import sys
 import time
 from pathlib import Path
@@ -85,7 +86,12 @@ class RaptorLogger:
 
         # Console handler with standard formatting
         console_handler = logging.StreamHandler(sys.stderr)
-        console_handler.setLevel(logging.INFO)
+        # Allow debug mode via RAPTOR_DEBUG environment variable
+        log_level_env = os.getenv("RAPTOR_DEBUG", "").lower()
+        if log_level_env in ("1", "true", "yes", "debug"):
+            console_handler.setLevel(logging.DEBUG)
+        else:
+            console_handler.setLevel(logging.INFO)
         console_formatter = logging.Formatter(RaptorConfig.LOG_FORMAT_CONSOLE)
         console_handler.setFormatter(console_formatter)
         self.logger.addHandler(console_handler)

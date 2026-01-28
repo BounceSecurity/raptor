@@ -141,6 +141,32 @@ def mode_codeql(args: list) -> int:
     return run_script(codeql_script, args)
 
 
+def mode_opencode(args: list) -> int:
+    """Run OpenCode-powered codebase analysis."""
+    script_root = Path(__file__).parent
+    opencode_script = script_root / "packages/opencode_analysis/agent.py"
+    
+    if not opencode_script.exists():
+        print(f"✗ OpenCode analysis script not found: {opencode_script}")
+        return 1
+    
+    print("\n[*] Running OpenCode-powered analysis...\n")
+    return run_script(opencode_script, args)
+
+
+def mode_kill_opencode(args: list) -> int:
+    """Kill dangling RAPTOR-managed OpenCode instances."""
+    script_root = Path(__file__).parent
+    kill_script = script_root / "scripts" / "kill_opencode_raptor.py"
+    
+    if not kill_script.exists():
+        print(f"✗ Kill script not found: {kill_script}")
+        return 1
+    
+    # Run the script directly (it handles its own output)
+    return run_script(kill_script, args)
+
+
 def mode_llm_analysis(args: list) -> int:
     """Run LLM-powered vulnerability analysis on existing SARIF files."""
     script_root = Path(__file__).parent
@@ -165,6 +191,7 @@ def show_mode_help(mode: str) -> None:
         'agentic': script_root / "raptor_agentic.py",
         'codeql': script_root / "raptor_codeql.py",
         'analyze': script_root / "packages/llm_analysis/agent.py",
+        'opencode': script_root / "packages/opencode_analysis/agent.py",
     }
     
     if mode not in mode_scripts:
@@ -196,6 +223,7 @@ Available Modes:
   agentic     - Full autonomous workflow (Semgrep + CodeQL + LLM analysis)
   codeql      - CodeQL-only analysis
   analyze     - LLM-powered vulnerability analysis (requires SARIF input)
+  opencode    - OpenCode-powered codebase analysis (requires OpenCode server)
 
 Examples:
   # Full autonomous workflow
@@ -215,6 +243,9 @@ Examples:
 
   # LLM analysis of existing SARIF
   python3 raptor.py analyze --repo /path/to/code --sarif findings.sarif
+
+  # OpenCode-powered analysis
+  python3 raptor.py opencode --repo /path/to/code --prompt "Find security vulnerabilities"
 
   # Get help for a specific mode
   python3 raptor.py help scan
@@ -244,6 +275,7 @@ Available Modes:
   agentic     - Full autonomous workflow (Semgrep + CodeQL + LLM analysis)
   codeql      - CodeQL-only analysis
   analyze     - LLM-powered vulnerability analysis (requires SARIF input)
+  opencode    - OpenCode-powered codebase analysis (requires OpenCode server)
 
 Examples:
   # Full autonomous workflow
@@ -263,6 +295,9 @@ Examples:
 
   # LLM analysis of existing SARIF
   python3 raptor.py analyze --repo /path/to/code --sarif findings.sarif
+
+  # OpenCode-powered analysis
+  python3 raptor.py opencode --repo /path/to/code --prompt "Find security vulnerabilities"
 
   # Get help for a specific mode
   python3 raptor.py help scan
@@ -292,6 +327,8 @@ For more information, visit: https://github.com/gadievron/raptor
         'agentic': mode_agentic,
         'codeql': mode_codeql,
         'analyze': mode_llm_analysis,
+        'opencode': mode_opencode,
+        'killopencode': mode_kill_opencode,
     }
     
     if mode not in mode_handlers:

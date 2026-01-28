@@ -14,6 +14,25 @@ from core.sarif.parser import (
     sanitize_finding_for_display,
 )
 
+# Git utilities (extracted in refactoring)
+from core.git import (
+    validate_repository,
+    clone_repository,
+    get_repository_metadata,
+)
+
+# Semgrep utilities (extracted in refactoring)
+from core.semgrep import run_semgrep
+
+# LLM utilities (moved in refactoring)
+from core.llm import LLMClient, LLMConfig
+
+# Execution utilities (consolidated in refactoring)
+from core.exec import run, run_streaming
+
+# Hash utilities (consolidated in refactoring)
+from core.hash import sha256_tree
+
 __all__ = [
     "RaptorConfig",
     "get_logger",
@@ -22,4 +41,18 @@ __all__ = [
     "validate_sarif",
     "generate_scan_metrics",
     "sanitize_finding_for_display",
+    # Git utilities
+    "validate_repository",
+    "clone_repository",
+    "get_repository_metadata",
+    # Semgrep utilities
+    "run_semgrep",
+    # LLM utilities
+    "LLMClient",
+    "LLMConfig",
+    # Execution utilities
+    "run",
+    "run_streaming",
+    # Hash utilities
+    "sha256_tree",
 ]
