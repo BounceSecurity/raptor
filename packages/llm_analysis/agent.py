@@ -27,9 +27,9 @@ from core.logging import get_logger
 from core.progress import HackerProgress
 from core.sarif.parser import parse_sarif_findings, deduplicate_findings
 from core.inventory.lookup import lookup_function as _lookup_function
-from llm.client import LLMClient, _is_auth_error
-from llm.config import LLMConfig, detect_llm_availability
-from llm.providers import ClaudeCodeProvider
+from core.llm.client import LLMClient, _is_auth_error
+from core.llm.config import LLMConfig, detect_llm_availability
+from core.llm.providers import ClaudeCodeProvider
 
 logger = get_logger()
 

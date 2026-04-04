@@ -18,6 +18,7 @@ from core.git import clone_repository
 from core.semgrep import run_semgrep
 from core.exec import run
 from core.hash import sha256_tree
+from core.llm import LLMClient, LLMConfig
 
 __all__ = [
     "RaptorConfig",
@@ -31,4 +32,6 @@ __all__ = [
     "run_semgrep",
     "run",
     "sha256_tree",
+    "LLMClient",
+    "LLMConfig",
 ]

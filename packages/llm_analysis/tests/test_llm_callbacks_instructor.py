@@ -15,13 +15,14 @@ from pydantic import BaseModel
 # Add parent directories to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from packages.llm_analysis.llm.providers import (
+from core.llm.client import LLMClient
+from core.llm.providers import (
     _dict_schema_to_pydantic,
     _coerce_to_schema,
     LLMProvider,
     LLMResponse,
 )
-from packages.llm_analysis.llm.config import ModelConfig
+from core.llm.config import ModelConfig
 
 
 class TestDictSchemaToPydanticSimple:

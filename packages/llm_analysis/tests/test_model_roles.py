@@ -7,7 +7,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from packages.llm_analysis.llm.config import (
+from core.llm.config import (
     ModelConfig, ConfigError, resolve_model_roles, VALID_ROLES,
 )
 
