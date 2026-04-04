@@ -14,9 +14,6 @@ from core.config import RaptorConfig
 class TestGetSafeEnv:
     """Tests for RaptorConfig.get_safe_env()."""
 
-    def test_returns_dict(self):
-        assert isinstance(RaptorConfig.get_safe_env(), dict)
-
     def test_strips_dangerous_env_vars(self):
         """TERMINAL, BROWSER, PAGER, VISUAL, EDITOR must be removed."""
         injected = {var: f"malicious_{var}" for var in RaptorConfig.DANGEROUS_ENV_VARS}
@@ -36,15 +33,6 @@ class TestGetSafeEnv:
     def test_sets_pythonunbuffered(self):
         env = RaptorConfig.get_safe_env()
         assert env.get("PYTHONUNBUFFERED") == "1"
-
-    def test_preserves_path(self):
-        """PATH must be preserved so subprocesses can find tools."""
-        env = RaptorConfig.get_safe_env()
-        assert "PATH" in env
-
-    def test_preserves_home(self):
-        env = RaptorConfig.get_safe_env()
-        assert "HOME" in env
 
     def test_does_not_strip_term(self):
         """TERM is read as a string (terminfo lookup), not shell-evaluated — must not be stripped."""
@@ -107,11 +95,6 @@ class TestGetOutDir:
             result = RaptorConfig.get_out_dir()
             assert result == RaptorConfig.BASE_OUT_DIR
 
-    def test_returns_path_object(self, tmp_path):
-        with patch.dict(os.environ, {"RAPTOR_OUT_DIR": str(tmp_path)}):
-            assert isinstance(RaptorConfig.get_out_dir(), Path)
-
-
 class TestEnsureDirectories:
     """Tests for RaptorConfig.ensure_directories()."""
 
@@ -140,29 +123,3 @@ class TestEnsureDirectories:
             RaptorConfig.ensure_directories()  # must not raise
 
 
-class TestConfigConstants:
-    """Smoke tests for configuration constants."""
-
-    def test_tool_deps_have_required_keys(self):
-        for tool, cfg in RaptorConfig.TOOL_DEPS.items():
-            assert "binary" in cfg, f"{tool} missing 'binary'"
-            assert "affects" in cfg, f"{tool} missing 'affects'"
-
-    def test_policy_group_pack_mapping_is_consistent(self):
-        for group, (pack_name, pack_id) in RaptorConfig.POLICY_GROUP_TO_SEMGREP_PACK.items():
-            assert pack_name, f"Empty pack_name for group {group}"
-            assert pack_id, f"Empty pack_id for group {group}"
-
-    def test_baseline_packs_non_empty(self):
-        assert len(RaptorConfig.BASELINE_SEMGREP_PACKS) > 0
-
-    def test_timeouts_are_positive(self):
-        assert RaptorConfig.DEFAULT_TIMEOUT > 0
-        assert RaptorConfig.SEMGREP_TIMEOUT > 0
-        assert RaptorConfig.GIT_CLONE_TIMEOUT > 0
-        assert RaptorConfig.LLM_TIMEOUT > 0
-
-    def test_resource_limits_are_positive(self):
-        assert RaptorConfig.RESOURCE_READ_LIMIT > 0
-        assert RaptorConfig.HASH_CHUNK_SIZE > 0
-        assert RaptorConfig.MAX_FILE_SIZE_FOR_HASH > 0

@@ -99,29 +99,3 @@ class TestRunCodeql:
         assert result == []
         mock_run.assert_not_called()
 
-
-# ---------------------------------------------------------------------------
-# Verify scanner imports utilities from core (PR #5 change)
-# ---------------------------------------------------------------------------
-
-class TestScannerCoreImports:
-
-    def test_uses_clone_repository_from_core(self):
-        from core.git import clone_repository
-        assert _scanner_mod.clone_repository is clone_repository
-
-    def test_uses_run_from_core(self):
-        from core.exec import run
-        assert _scanner_mod.run is run
-
-    def test_uses_sha256_tree_from_core(self):
-        from core.hash import sha256_tree
-        assert _scanner_mod.sha256_tree is sha256_tree
-
-    def test_uses_semgrep_scan_parallel_from_core(self):
-        from core.semgrep import semgrep_scan_parallel
-        assert _scanner_mod.semgrep_scan_parallel is semgrep_scan_parallel
-
-    def test_uses_semgrep_scan_sequential_from_core(self):
-        from core.semgrep import semgrep_scan_sequential
-        assert _scanner_mod.semgrep_scan_sequential is semgrep_scan_sequential

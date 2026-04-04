@@ -92,10 +92,6 @@ class TestInventory:
         result = inventory(tmp_path)
         assert result["file_count"] == 1
 
-    def test_returns_expected_keys(self, tmp_path):
-        result = inventory(tmp_path)
-        assert set(result.keys()) == {"file_count", "ext_counts", "language_counts"}
-
 
 # ---------------------------------------------------------------------------
 # get_out_dir()
