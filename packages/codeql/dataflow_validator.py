@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core.logging import get_logger
 from core.source import read_code_context
+from core.sarif.parser import extract_dataflow_path as _extract_dataflow_path
 
 logger = get_logger()
 
@@ -92,59 +93,36 @@ class DataflowValidator:
         self.logger = get_logger()
 
     def extract_dataflow_from_sarif(self, result: Dict) -> Optional[DataflowPath]:
-        """
-        Extract dataflow path from SARIF result.
+        """Extract dataflow path from SARIF result, returning a typed DataflowPath.
 
-        Args:
-            result: SARIF result object
-
-        Returns:
-            DataflowPath or None if not a dataflow finding
+        Delegates SARIF parsing to core.sarif.parser.extract_dataflow_path and
+        converts the generic dict result into the typed DataflowPath/DataflowStep
+        dataclasses used by this validator.  The sanitizer-detection heuristic
+        (labels containing "sanitiz" or "validat") is applied here because it is
+        specific to CodeQL validation logic.
         """
         try:
-            # Check if this is a path-problem (dataflow)
-            code_flows = result.get("codeFlows", [])
-            if not code_flows:
+            raw = _extract_dataflow_path(result.get("codeFlows", []))
+            if raw is None:
                 return None
 
-            # Extract the first code flow (typically the most relevant)
-            flow = code_flows[0]
-            thread_flows = flow.get("threadFlows", [])
-            if not thread_flows:
-                return None
-
-            locations = thread_flows[0].get("locations", [])
-            if len(locations) < 2:
-                return None
-
-            # Parse locations into steps
-            steps = []
-            for loc_wrapper in locations:
-                loc = loc_wrapper.get("location", {})
-                physical_loc = loc.get("physicalLocation", {})
-
-                region = physical_loc.get("region", {})
-                artifact = physical_loc.get("artifactLocation", {})
-
-                step = DataflowStep(
-                    file_path=artifact.get("uri", ""),
-                    line=region.get("startLine", 0),
-                    column=region.get("startColumn", 0),
-                    snippet=region.get("snippet", {}).get("text", ""),
-                    label=loc.get("message", {}).get("text", "")
+            def _to_step(d: Dict) -> DataflowStep:
+                return DataflowStep(
+                    file_path=d["file"],
+                    line=d["line"],
+                    column=d["column"],
+                    snippet=d["snippet"],
+                    label=d["label"],
                 )
-                steps.append(step)
 
-            # First is source, last is sink, rest are intermediate
-            source = steps[0]
-            sink = steps[-1]
-            intermediate = steps[1:-1] if len(steps) > 2 else []
+            source = _to_step(raw["source"])
+            sink = _to_step(raw["sink"])
+            intermediate = [_to_step(s) for s in raw["steps"]]
 
-            # Look for sanitizers mentioned in the flow
-            sanitizers = []
-            for step in intermediate:
-                if "sanitiz" in step.label.lower() or "validat" in step.label.lower():
-                    sanitizers.append(step.label)
+            sanitizers = [
+                s.label for s in intermediate
+                if "sanitiz" in s.label.lower() or "validat" in s.label.lower()
+            ]
 
             return DataflowPath(
                 source=source,
@@ -152,7 +130,7 @@ class DataflowValidator:
                 intermediate_steps=intermediate,
                 sanitizers=sanitizers,
                 rule_id=result.get("ruleId", ""),
-                message=result.get("message", {}).get("text", "")
+                message=result.get("message", {}).get("text", ""),
             )
 
         except Exception as e:
