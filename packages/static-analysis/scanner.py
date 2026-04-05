@@ -19,6 +19,7 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from core.config import RaptorConfig
+from core.output import make_run_dir
 from core.logging import get_logger
 from core.sarif.parser import generate_scan_metrics
 from core.git import clone_repository
@@ -114,8 +115,7 @@ def main():
 
         # Generate output directory with repository name and timestamp
         repo_name = repo_path.name
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        out_dir = RaptorConfig.get_out_dir() / f"scan_{repo_name}_{timestamp}"
+        out_dir = make_run_dir("scan", repo_name)
         out_dir.mkdir(parents=True, exist_ok=True)
 
         # Manifest

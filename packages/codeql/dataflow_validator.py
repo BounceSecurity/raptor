@@ -16,6 +16,7 @@ from typing import Dict, List, Optional
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core.logging import get_logger
+from core.source import read_code_context
 
 logger = get_logger()
 
@@ -159,33 +160,8 @@ class DataflowValidator:
             return None
 
     def read_source_context(self, file_path: str, line: int, context_lines: int = 10) -> str:
-        """
-        Read source code context around a location.
-
-        Args:
-            file_path: Path to source file
-            line: Line number
-            context_lines: Lines before/after to include
-
-        Returns:
-            Source code snippet with context
-        """
-        try:
-            with open(file_path) as f:
-                lines = f.readlines()
-
-            start = max(0, line - context_lines - 1)
-            end = min(len(lines), line + context_lines)
-
-            context = []
-            for i in range(start, end):
-                marker = ">>> " if i == line - 1 else "    "
-                context.append(f"{marker}{i + 1:4d}: {lines[i].rstrip()}")
-
-            return "\n".join(context)
-        except Exception as e:
-            self.logger.warning(f"Failed to read source context: {e}")
-            return ""
+        """Read source code context around a location."""
+        return read_code_context(file_path, line, context_lines)
 
     def validate_dataflow_path(
         self,

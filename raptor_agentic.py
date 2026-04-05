@@ -26,6 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from core.config import RaptorConfig
 from core.logging import get_logger
+from core.output import make_run_dir
 
 logger = get_logger()
 
@@ -335,8 +336,7 @@ Examples:
     if args.out:
         out_dir = Path(args.out).resolve()
     else:
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        out_dir = RaptorConfig.get_out_dir() / f"raptor_{repo_name}_{timestamp}"
+        out_dir = make_run_dir("raptor", repo_name)
 
     out_dir.mkdir(parents=True, exist_ok=True)
 
