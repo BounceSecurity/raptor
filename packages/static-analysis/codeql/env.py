@@ -5,11 +5,15 @@ Safe detection and configuration helper for CodeQL within RAPTOR.
 """
 
 from __future__ import annotations
+import sys
 from dataclasses import dataclass, asdict
+from pathlib import Path
 from typing import Optional, Literal, Dict, Any
 import os
 import shutil
-import subprocess
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+from core.exec import run as _run
 
 CodeQLMode = Literal["disabled", "detect", "require"]
 
@@ -26,20 +30,16 @@ class CodeQLEnv:
         return asdict(self)
 
 def _run_codeql_version(cli_path: str, timeout_seconds: int = 10) -> Optional[str]:
+    # The original used stderr=subprocess.STDOUT to capture version info that
+    # some CodeQL builds emit on stderr.  We replicate this by combining both
+    # streams after the call so callers see exactly the same merged output.
     try:
-        completed = subprocess.run(
-            [cli_path, "version"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            timeout=timeout_seconds,
-            check=False,
-        )
+        rc, stdout, stderr = _run([cli_path, "version"], timeout=timeout_seconds)
     except Exception:
         return None
 
-    output = (completed.stdout or "").strip()
-    if completed.returncode != 0:
+    output = (stdout + stderr).strip()
+    if rc != 0:
         return None
     return output
 

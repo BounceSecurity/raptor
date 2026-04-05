@@ -17,10 +17,14 @@ import copy
 import json
 import logging
 import shutil
+import sys
 import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from core.json_utils import load_json_file
 
 from packages.llm_analysis.cc_dispatch import invoke_cc_simple
 from packages.llm_analysis.dispatch import _format_elapsed
@@ -171,11 +175,10 @@ def orchestrate(
         Orchestrated report dict, or None if orchestration was skipped.
     """
     # Load Phase 3 report
-    try:
-        report = json.loads(prep_report_path.read_text())
-    except (json.JSONDecodeError, OSError) as e:
-        logger.error(f"Failed to read Phase 3 report: {e}")
-        print(f"\n  Failed to read analysis report: {e}")
+    report = load_json_file(prep_report_path)
+    if report is None:
+        logger.error(f"Failed to read Phase 3 report: {prep_report_path}")
+        print(f"\n  Failed to read analysis report: {prep_report_path}")
         return None
 
     if report.get("mode") != "prep_only":

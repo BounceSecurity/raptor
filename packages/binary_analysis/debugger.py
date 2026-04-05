@@ -11,9 +11,12 @@ through crafted filenames (GDB's parser interprets shell metacharacters).
 
 import os
 import subprocess
+import sys
 from pathlib import Path
 from typing import List, Optional
 
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from core.exec import run as _run
 from core.logging import get_logger
 
 logger = get_logger()
@@ -52,26 +55,17 @@ class GDBDebugger:
         # Build GDB command
         cmd = ["gdb", "-batch", "-x", str(script_file), str(self.binary)]
 
-        # Run with input redirection if provided
+        # Run with input redirection if provided.
+        # Security note: stdin is passed as a file object (not via GDB script
+        # redirection) to prevent CWE-78 through crafted filenames.
         try:
             if input_file:
                 with open(input_file, "rb") as f:
-                    result = subprocess.run(
-                        cmd,
-                        stdin=f,
-                        capture_output=True,
-                        text=True,
-                        timeout=timeout,
-                    )
+                    _, stdout, _ = _run(cmd, stdin=f, timeout=timeout)
             else:
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=timeout,
-                )
+                _, stdout, _ = _run(cmd, timeout=timeout)
 
-            return result.stdout
+            return stdout
         finally:
             try:
                 script_file.unlink()

@@ -20,6 +20,8 @@ from core.exec import run
 from core.hash import sha256_tree
 from core.source import read_code_context
 from core.output import make_run_dir
+from core.llm.extract import extract_code_from_markdown
+from core.json_utils import load_json_file
 
 __all__ = [
     "RaptorConfig",
@@ -35,4 +37,6 @@ __all__ = [
     "sha256_tree",
     "read_code_context",
     "make_run_dir",
+    "extract_code_from_markdown",
+    "load_json_file",
 ]

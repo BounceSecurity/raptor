@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 sys.path.insert(0, str(Path(__file__).parent))
 from core.config import RaptorConfig
 from core.logging import get_logger
+from core.llm.extract import extract_code_from_markdown
 from core.output import make_run_dir
 from core.source import read_code_context
 from core.progress import HackerProgress
@@ -939,32 +940,11 @@ Do NOT:
 
     def _extract_code(self, content: str) -> Optional[str]:
         """Extract code from LLM response (handles markdown code blocks)."""
-        # Try to find C++ code block first
-        if "```cpp" in content:
-            parts = content.split("```cpp")
-            if len(parts) > 1:
-                code = parts[1].split("```")[0].strip()
-                return code
-        # Try to find C code block
-        elif "```c" in content:
-            parts = content.split("```c")
-            if len(parts) > 1:
-                code = parts[1].split("```")[0].strip()
-                return code
-        # Try to find Python code block
-        elif "```python" in content:
-            parts = content.split("```python")
-            if len(parts) > 1:
-                code = parts[1].split("```")[0].strip()
-                return code
-        elif "```" in content:
-            parts = content.split("```")
-            if len(parts) > 1:
-                code = parts[1].strip()
-                return code
-
-        # If no code block, return content as-is
-        return content.strip()
+        return extract_code_from_markdown(
+            content,
+            language_hints=["cpp", "c", "python"],
+            fallback_to_content=True,
+        )
 
     def _load_validated_findings(self, findings_path: str) -> List[Dict[str, Any]]:
         """Load pre-validated findings from the validation pipeline's findings.json.
