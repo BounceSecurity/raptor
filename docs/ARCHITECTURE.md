@@ -37,7 +37,7 @@ The modular architecture refactors the original monolithic structure into a clea
 
 ```
 raptor/
-├── core/                  # Shared utilities (config, logging, progress, SARIF parsing)
+├── core/                  # Shared utilities (config, logging, exec, git, hash, semgrep, SARIF)
 ├── packages/              # Independent security capabilities
 │   ├── static-analysis/   # Semgrep scanning
 │   ├── codeql/            # CodeQL deep analysis and dataflow validation
@@ -69,8 +69,12 @@ raptor/
 ├── core/                           # Shared utilities layer
 │   ├── __init__.py
 │   ├── config.py                   # RaptorConfig (paths, settings)
+│   ├── exec.py                     # Subprocess execution (run())
+│   ├── git.py                      # Git operations (clone_repository, validate_repo_url)
+│   ├── hash.py                     # Directory tree hashing (sha256_tree)
 │   ├── logging.py                  # Structured logging with JSONL audit trail
 │   ├── progress.py                 # Progress tracking utilities
+│   ├── semgrep.py                  # Semgrep scanning (parallel/sequential orchestration)
 │   ├── sarif/
 │   │   ├── __init__.py
 │   │   └── parser.py               # SARIF 2.1.0 parsing utilities
@@ -88,7 +92,7 @@ raptor/
 │   │
 │   ├── static-analysis/            # Static code scanning
 │   │   ├── __init__.py
-│   │   ├── scanner.py              # Main: Semgrep orchestrator
+│   │   ├── scanner.py              # Main: scan entry point (delegates to core/semgrep)
 │   │   └── codeql/
 │   │       └── env.py              # CodeQL environment setup
 │   │
@@ -666,7 +670,7 @@ python3 packages/web/scanner.py \
 - `semgrep.yaml` - Semgrep configuration file
 - `tools/` - Utilities for rule development and testing
 
-**Usage**: Consumed by `packages/static-analysis/scanner.py` for Semgrep scanning
+**Usage**: Consumed by `core/semgrep.py` for Semgrep scanning
 
 **Design Rationale**: Separating analysis engines from packages allows for centralized rule management and easier rule updates without modifying package code.
 

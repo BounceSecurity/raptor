@@ -7,10 +7,11 @@
 """
 import argparse, json, os, shutil, sys, tempfile, time
 from pathlib import Path
-from core.json import save_json
 
 # Setup path for core module imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from core.json import save_json
+from core.git import clone_repository
 from core.hash import sha256_tree
 from core.git import clone_repository
 
