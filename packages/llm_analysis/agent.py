@@ -26,6 +26,9 @@ from core.json import load_json, save_json
 sys.path.insert(0, str(Path(__file__).parent))
 from core.config import RaptorConfig
 from core.logging import get_logger
+from core.llm.extract import extract_code_from_markdown
+from core.run import get_output_dir
+from core.source import read_code_context
 from core.progress import HackerProgress
 from core.sarif.parser import parse_sarif_findings, deduplicate_findings
 from core.inventory.lookup import lookup_function as _lookup_function
@@ -126,44 +129,17 @@ class VulnerabilityContext:
             return False
 
     def _read_code_at_location(self, file_uri: str, line: int, context_lines: int = 5) -> str:
-        """
-        Read code at a specific location with surrounding context.
+        """Read code at a specific location with surrounding context."""
+        clean_path = file_uri.replace("file://", "")
+        file_path = (self.repo_path / clean_path).resolve()
 
-        Args:
-            file_uri: File URI from SARIF
-            line: Line number (1-indexed)
-            context_lines: Number of lines before/after to include
+        if not str(file_path).startswith(str(self.repo_path.resolve())):
+            return f"[Path traversal blocked: {file_uri}]"
 
-        Returns:
-            Code snippet with context
-        """
-        try:
-            # Clean up the file URI and validate path stays within repo
-            clean_path = file_uri.replace("file://", "")
-            file_path = (self.repo_path / clean_path).resolve()
+        if not file_path.exists():
+            return f"[File not found: {file_uri}]"
 
-            if not str(file_path).startswith(str(self.repo_path.resolve())):
-                return f"[Path traversal blocked: {file_uri}]"
-
-            if not file_path.exists():
-                return f"[File not found: {file_uri}]"
-
-            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
-                lines = f.readlines()
-
-            # Get context around the line
-            start = max(0, line - context_lines - 1)
-            end = min(len(lines), line + context_lines)
-
-            context = []
-            for i in range(start, end):
-                marker = ">>>" if i == line - 1 else "   "
-                context.append(f"{marker} {i + 1:4d} | {lines[i].rstrip()}")
-
-            return "\n".join(context)
-
-        except Exception as e:
-            return f"[Error reading code: {e}]"
+        return read_code_context(file_path, line, context_lines)
 
     def _is_sanitizer(self, label: str) -> bool:
         """
@@ -954,32 +930,11 @@ Do NOT:
 
     def _extract_code(self, content: str) -> Optional[str]:
         """Extract code from LLM response (handles markdown code blocks)."""
-        # Try to find C++ code block first
-        if "```cpp" in content:
-            parts = content.split("```cpp")
-            if len(parts) > 1:
-                code = parts[1].split("```")[0].strip()
-                return code
-        # Try to find C code block
-        elif "```c" in content:
-            parts = content.split("```c")
-            if len(parts) > 1:
-                code = parts[1].split("```")[0].strip()
-                return code
-        # Try to find Python code block
-        elif "```python" in content:
-            parts = content.split("```python")
-            if len(parts) > 1:
-                code = parts[1].split("```")[0].strip()
-                return code
-        elif "```" in content:
-            parts = content.split("```")
-            if len(parts) > 1:
-                code = parts[1].strip()
-                return code
-
-        # If no code block, return content as-is
-        return content.strip()
+        return extract_code_from_markdown(
+            content,
+            language_hints=["cpp", "c", "python"],
+            fallback_to_content=True,
+        )
 
     def _load_validated_findings(self, findings_path: str) -> List[Dict[str, Any]]:
         """Load pre-validated findings from the validation pipeline's findings.json.
@@ -1234,8 +1189,7 @@ def main() -> None:
     if args.out:
         out_dir = Path(args.out).resolve()
     else:
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        out_dir = RaptorConfig.get_out_dir() / f"autonomous_v2_{timestamp}"
+        out_dir = get_output_dir("autonomous_v2")
 
     # Initialize agent with LLM
     agent = AutonomousSecurityAgentV2(repo_path, out_dir, prep_only=args.prep_only)

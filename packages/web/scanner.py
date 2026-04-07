@@ -96,8 +96,7 @@ class WebScanner:
 def main():
     """CLI entry point for web scanner."""
     import argparse
-    import time
-    from core.config import RaptorConfig
+    from core.run import get_output_dir
 
     parser = argparse.ArgumentParser(
         description="RAPTOR Web Application Security Scanner",
@@ -124,8 +123,7 @@ Examples:
     if args.out:
         out_dir = Path(args.out)
     else:
-        timestamp = int(time.time())
-        out_dir = RaptorConfig.get_out_dir() / f"web_scan_{timestamp}"
+        out_dir = get_output_dir("web_scan")
 
     out_dir.mkdir(parents=True, exist_ok=True)
 

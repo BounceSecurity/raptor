@@ -13,13 +13,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from core.json import save_json
 from core.git import clone_repository
 from core.hash import sha256_tree
+from core.git import clone_repository
 
 
 def get_out_dir() -> Path:
     base = os.environ.get("RAPTOR_OUT_DIR")
     return Path(base).resolve() if base else Path("out").resolve()
 
-def safe_clone(url: str, dest: Path):
+def safe_clone(url: str, dest: Path) -> Path:
+    """Clone url shallowly to dest using core.git (validates URL, strips proxy env)."""
     clone_repository(url, dest, depth=1)
     return dest
 

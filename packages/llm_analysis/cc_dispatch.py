@@ -10,8 +10,12 @@ import copy
 import json
 import logging
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Dict
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from core.exec import run as _run
 
 from packages.llm_analysis.dispatch import DispatchResult
 from packages.llm_analysis.prompts.schemas import FINDING_RESULT_SCHEMA
@@ -43,21 +47,21 @@ def invoke_cc_simple(prompt, schema, repo_path, claude_bin, out_dir,
         cmd.extend(["--json-schema", json.dumps(effective_schema)])
 
     try:
-        proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=timeout)
+        rc, stdout, stderr = _run(cmd, input=prompt, timeout=timeout)
     except subprocess.TimeoutExpired:
         return DispatchResult(result={"error": f"timeout after {timeout}s"})
 
-    if proc.returncode != 0:
-        stderr_excerpt = (proc.stderr or "")[:500]
-        result = {"error": f"exit code {proc.returncode}: {stderr_excerpt}"}
-        write_debug(out_dir, "dispatch", proc.stdout, proc.stderr, result)
+    if rc != 0:
+        stderr_excerpt = (stderr or "")[:500]
+        result = {"error": f"exit code {rc}: {stderr_excerpt}"}
+        write_debug(out_dir, "dispatch", stdout, stderr, result)
         return DispatchResult(result=result)
 
     if schema:
-        parsed = parse_cc_result(proc.stdout, proc.stderr, "unknown")
+        parsed = parse_cc_result(stdout, stderr, "unknown")
     else:
         # Free-form with JSON envelope — extract text content and cost metadata
-        parsed = parse_cc_freeform(proc.stdout, proc.stderr)
+        parsed = parse_cc_freeform(stdout, stderr)
 
     cost = parsed.pop("cost_usd", 0)
     tokens = parsed.pop("_tokens", 0)

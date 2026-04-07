@@ -12,6 +12,7 @@ from enum import Enum
 from typing import List, Optional, Dict, Any
 
 from core.logging import get_logger
+from core.llm.extract import extract_code_from_markdown
 from packages.llm_analysis.llm.providers import LLMProvider
 
 logger = get_logger()
@@ -390,19 +391,7 @@ Be specific and provide clear reasoning."""
 
     def _extract_code_from_response(self, response: str) -> Optional[str]:
         """Extract C code from LLM response."""
-        import re
-
-        # Look for code blocks
-        code_block_match = re.search(r'```c\n(.*?)```', response, re.DOTALL)
-        if code_block_match:
-            return code_block_match.group(1).strip()
-
-        # Look for any code block
-        code_block_match = re.search(r'```\n(.*?)```', response, re.DOTALL)
-        if code_block_match:
-            return code_block_match.group(1).strip()
-
-        return None
+        return extract_code_from_markdown(response, language_hints=["c"])
 
     def _quick_validate_code(self, code: str) -> List[str]:
         """Quick validation of C code (basic syntax checks)."""

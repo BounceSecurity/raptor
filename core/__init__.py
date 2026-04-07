@@ -18,6 +18,8 @@ from core.git import clone_repository
 from core.semgrep import run_semgrep
 from core.exec import run
 from core.hash import sha256_tree
+from core.source import read_code_context
+from core.llm.extract import extract_code_from_markdown
 
 __all__ = [
     "RaptorConfig",
@@ -31,4 +33,6 @@ __all__ = [
     "run_semgrep",
     "run",
     "sha256_tree",
+    "read_code_context",
+    "extract_code_from_markdown",
 ]

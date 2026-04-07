@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core.json import load_json, save_json
 from core.config import RaptorConfig
+from core.exec import run as _run
 from core.logging import get_logger
 from packages.codeql.build_detector import BuildSystem
 
@@ -120,16 +121,9 @@ class DatabaseManager:
     def get_codeql_version(self) -> Optional[str]:
         """Get CodeQL version."""
         try:
-            result = subprocess.run(
-                [self.codeql_cli, "version"],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            if result.returncode == 0:
-                # Parse version from output (first line usually contains version)
-                version = result.stdout.strip().split('\n')[0]
-                return version
+            rc, stdout, _ = _run([self.codeql_cli, "version"], timeout=10)
+            if rc == 0:
+                return stdout.strip().split("\n")[0]
             return None
         except Exception as e:
             logger.warning(f"Failed to get CodeQL version: {e}")
@@ -151,15 +145,9 @@ class DatabaseManager:
 
         # Try to use git commit hash (fast)
         try:
-            result = subprocess.run(
-                ["git", "rev-parse", "HEAD"],
-                cwd=repo_path,
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode == 0:
-                git_hash = result.stdout.strip()
+            rc, stdout, _ = _run(["git", "rev-parse", "HEAD"], cwd=repo_path, timeout=5)
+            if rc == 0:
+                git_hash = stdout.strip()
                 # Combine with repo path to ensure uniqueness
                 combined = f"{repo_path}:{git_hash}"
                 return hashlib.sha256(combined.encode()).hexdigest()[:16]
@@ -370,23 +358,21 @@ class DatabaseManager:
 
         # Execute database creation
         try:
-            result = subprocess.run(
+            rc, stdout, stderr = _run(
                 cmd,
                 cwd=working_dir,
                 env=env,
-                capture_output=True,
-                text=True,
                 timeout=RaptorConfig.CODEQL_TIMEOUT,
             )
 
-            success = result.returncode == 0
+            success = rc == 0
 
             if not success:
-                errors.append(f"Database creation failed with exit code {result.returncode}")
-                if result.stderr:
-                    errors.append(result.stderr[:1000])  # Truncate long errors
+                errors.append(f"Database creation failed with exit code {rc}")
+                if stderr:
+                    errors.append(stderr[:1000])  # Truncate long errors
                 logger.error(f"✗ Database creation failed for {language}")
-                logger.error(result.stderr[:500])
+                logger.error(stderr[:500])
             else:
                 logger.info(f"✓ Database created successfully: {db_path}")
 

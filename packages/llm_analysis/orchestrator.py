@@ -17,10 +17,13 @@ import copy
 import json
 import logging
 import shutil
+import sys
 import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from packages.llm_analysis.cc_dispatch import invoke_cc_simple
 from core.reporting.formatting import format_elapsed as _format_elapsed
