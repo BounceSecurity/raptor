@@ -253,15 +253,13 @@ class LLMClient:
         if not self.config.enable_caching:
             return None
 
+        from core.json import load_json
         cache_file = self.config.cache_dir / f"{cache_key}.json"
-        if cache_file.exists():
-            try:
-                with open(cache_file) as f:
-                    data = json.load(f)
-                logger.debug(f"Cache hit: {cache_key}")
-                return data.get("content")
-            except Exception as e:
-                logger.warning(f"Cache read error: {e}")
+        # Non-strict: corrupt cache is silently skipped (regenerated on next call)
+        data = load_json(cache_file)
+        if data is not None:
+            logger.debug(f"Cache hit: {cache_key}")
+            return data.get("content")
 
         return None
 
@@ -270,16 +268,16 @@ class LLMClient:
         if not self.config.enable_caching:
             return
 
+        from core.json import save_json
         cache_file = self.config.cache_dir / f"{cache_key}.json"
         try:
-            with open(cache_file, 'w') as f:
-                json.dump({
+            save_json(cache_file, {
                     "content": response.content,
                     "model": response.model,
                     "provider": response.provider,
                     "tokens_used": response.tokens_used,
                     "timestamp": time.time(),
-                }, f, indent=2)
+                })
         except Exception as e:
             logger.warning(f"Cache write error: {e}")
 
@@ -326,6 +324,13 @@ class LLMClient:
                 model_config = self.config.get_model_for_task(task_type)
             else:
                 model_config = self.config.primary_model
+
+        # Warn if prompt likely exceeds context window (~4 chars per token)
+        estimated_tokens = (len(prompt) + len(system_prompt or "")) // 4
+        if estimated_tokens > model_config.max_context * 0.8:
+            logger.warning(
+                f"Prompt ~{estimated_tokens} tokens may exceed {model_config.model_name} "
+                f"context window ({model_config.max_context})")
 
         # Check cache
         cache_key = self._get_cache_key(prompt, system_prompt, model_config.model_name)
@@ -416,7 +421,7 @@ class LLMClient:
                         break
 
                     if attempt < self.config.max_retries - 1:
-                        delay = self.config.retry_delay * (2 ** attempt)
+                        delay = min(self.config.retry_delay * (2 ** attempt), 30)
                         logger.debug(f"Retrying in {delay}s...")
                         time.sleep(delay)
 
@@ -480,6 +485,13 @@ class LLMClient:
                 model_config = self.config.get_model_for_task(task_type)
             else:
                 model_config = self.config.primary_model
+
+        # Warn if prompt likely exceeds context window (~4 chars per token)
+        estimated_tokens = (len(prompt) + len(system_prompt or "")) // 4
+        if estimated_tokens > model_config.max_context * 0.8:
+            logger.warning(
+                f"Prompt ~{estimated_tokens} tokens may exceed {model_config.model_name} "
+                f"context window ({model_config.max_context})")
 
         # Try models in order (same tier only: local→local, cloud→cloud)
         models_to_try = [model_config]
@@ -563,7 +575,7 @@ class LLMClient:
                         break
 
                     if attempt < self.config.max_retries - 1:
-                        delay = self.config.retry_delay * (2 ** attempt)
+                        delay = min(self.config.retry_delay * (2 ** attempt), 30)
                         logger.debug(f"Retrying in {delay}s...")
                         time.sleep(delay)
 
