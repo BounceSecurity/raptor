@@ -5,12 +5,13 @@
 - Produces out/recon.json with simple inventory: file counts, languages by extension
 - Produces scan-manifest.json (input_hash, timestamp, agent meta)
 """
-import argparse, json, os, shutil, subprocess, sys, tempfile, time
+import argparse, json, os, shutil, sys, tempfile, time
 from pathlib import Path
-from core.json import save_json
 
 # Setup path for core module imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from core.json import save_json
+from core.git import clone_repository
 from core.hash import sha256_tree
 
 
@@ -19,17 +20,7 @@ def get_out_dir() -> Path:
     return Path(base).resolve() if base else Path("out").resolve()
 
 def safe_clone(url: str, dest: Path):
-    env = os.environ.copy()
-    env.update({
-        "GIT_TERMINAL_PROMPT": "0",
-        "GIT_ASKPASS": "true",
-    })
-    for k in ["HTTP_PROXY","HTTPS_PROXY","NO_PROXY","http_proxy","https_proxy","no_proxy"]:
-        env.pop(k, None)
-    cmd = ["git","clone","--depth","1","--no-tags",url,str(dest)]
-    p = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=600)
-    if p.returncode != 0:
-        raise RuntimeError(f"git clone failed: {p.stderr.strip()}")
+    clone_repository(url, dest, depth=1)
     return dest
 
 def inventory(path: Path):
