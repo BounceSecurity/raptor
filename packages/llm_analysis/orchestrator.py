@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from packages.llm_analysis.cc_dispatch import invoke_cc_simple
-from packages.llm_analysis.dispatch import _format_elapsed
+from core.reporting.formatting import format_elapsed as _format_elapsed
 
 logger = logging.getLogger(__name__)
 
@@ -171,11 +171,16 @@ def orchestrate(
         Orchestrated report dict, or None if orchestration was skipped.
     """
     # Load Phase 3 report
+    from core.json import load_json
     try:
-        report = json.loads(prep_report_path.read_text())
-    except (json.JSONDecodeError, OSError) as e:
+        report = load_json(prep_report_path, strict=True)
+    except Exception as e:
         logger.error(f"Failed to read Phase 3 report: {e}")
         print(f"\n  Failed to read analysis report: {e}")
+        return None
+    if report is None:
+        logger.error(f"Phase 3 report not found: {prep_report_path}")
+        print(f"\n  Phase 3 report not found: {prep_report_path}")
         return None
 
     if report.get("mode") != "prep_only":
@@ -393,8 +398,9 @@ def orchestrate(
     }
 
     out_dir.mkdir(parents=True, exist_ok=True)
+    from core.json import save_json
     out_path = out_dir / "orchestrated_report.json"
-    out_path.write_text(json.dumps(merged, indent=2))
+    save_json(out_path, merged)
     logger.info(f"Orchestrated report saved to {out_path}")
 
     # Summary
@@ -431,55 +437,9 @@ def orchestrate(
 
 
 def _check_self_consistency(results_by_id: Dict[str, Dict]) -> None:
-    """Check for contradictions between LLM reasoning and verdict fields.
-
-    Agentic equivalent of /validate Stage F (self-review). Flags findings
-    where the reasoning text contradicts is_true_positive, is_exploitable,
-    or ruling. No LLM call — pure text analysis.
-    """
-    contradiction_signals = {
-        "false_positive": ["false positive", "not a real", "scanner error",
-                           "not actually vulnerable", "not a vulnerability"],
-        "not_exploitable": ["not exploitable", "cannot be exploited",
-                            "no realistic attack", "unexploitable"],
-        "safe": ["safe", "harmless", "benign", "no security impact"],
-    }
-
-    flagged = 0
-    for fid, r in results_by_id.items():
-        if "error" in r:
-            continue
-        reasoning = (r.get("reasoning") or "").lower()
-        if not reasoning:
-            continue
-
-        is_tp = r.get("is_true_positive", True)
-        is_exp = r.get("is_exploitable", False)
-
-        contradictions = []
-
-        # Reasoning says false positive but verdict says true positive
-        if is_tp:
-            for signal in contradiction_signals["false_positive"]:
-                if signal in reasoning:
-                    contradictions.append(f"reasoning says '{signal}' but is_true_positive=True")
-                    break
-
-        # Reasoning says not exploitable but verdict says exploitable
-        if is_exp:
-            for signal in contradiction_signals["not_exploitable"] + contradiction_signals["safe"]:
-                if signal in reasoning:
-                    contradictions.append(f"reasoning says '{signal}' but is_exploitable=True")
-                    break
-
-        if contradictions:
-            r["self_contradictory"] = True
-            r["contradictions"] = contradictions
-            flagged += 1
-            logger.warning(f"Self-contradiction in {fid}: {contradictions[0]}")
-
-    if flagged:
-        logger.info(f"Self-consistency check: {flagged} finding(s) flagged as contradictory")
+    """Delegate to validation.check_self_consistency."""
+    from packages.llm_analysis.validation import check_self_consistency
+    check_self_consistency(results_by_id)
 
 
 def _merge_results(

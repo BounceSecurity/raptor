@@ -7,6 +7,7 @@
 """
 import argparse, json, os, shutil, subprocess, sys, tempfile, time
 from pathlib import Path
+from core.json import save_json
 
 # Setup path for core module imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -83,10 +84,10 @@ def main():
             # Chunk size doesn't affect hash result, only reading efficiency
             'input_hash': sha256_tree(repo_path, max_file_size=10**12, chunk_size=8192)
         }
-        (out_dir / 'scan-manifest.json').write_text(json.dumps(manifest, indent=2))
+        save_json(out_dir / 'scan-manifest.json', manifest)
 
         inv = inventory(repo_path)
-        (out_dir / 'recon.json').write_text(json.dumps({'manifest': manifest, 'inventory': inv}, indent=2))
+        save_json(out_dir / 'recon.json', {'manifest': manifest, 'inventory': inv})
 
         print(json.dumps({'status':'ok','manifest':manifest,'inventory':inv}, indent=2))
     finally:

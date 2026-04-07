@@ -18,6 +18,8 @@ from pathlib import Path
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from core.json import save_json
 from core.config import RaptorConfig
 from core.logging import get_logger
 from core.sarif.parser import generate_scan_metrics
@@ -132,7 +134,7 @@ def main():
             "policy_groups": groups,
             "parallel_scanning": not args.sequential,
         }
-        (out_dir / "scan-manifest.json").write_text(json.dumps(manifest, indent=2))
+        save_json(out_dir / "scan-manifest.json", manifest)
 
         # Semgrep stage - Use parallel scanning by default
         logger.info("Starting Semgrep scans...")
@@ -167,7 +169,7 @@ def main():
         # Generate metrics
         logger.info("Generating scan metrics...")
         metrics = generate_scan_metrics(sarif_inputs)
-        (out_dir / "scan_metrics.json").write_text(json.dumps(metrics, indent=2))
+        save_json(out_dir / "scan_metrics.json", metrics)
 
         logger.info(f"Scan complete: {metrics['total_findings']} findings in {metrics['total_files_scanned']} files")
 
@@ -177,7 +179,7 @@ def main():
             "sarif_inputs": sarif_inputs,
             "metrics": metrics,
         }
-        (out_dir / "verification.json").write_text(json.dumps(verification, indent=2))
+        save_json(out_dir / "verification.json", verification)
 
         duration = time.time() - start_time
         logger.info(f"Total scan duration: {duration:.2f}s")

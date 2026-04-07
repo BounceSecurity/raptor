@@ -5,12 +5,13 @@ directory and produces a consolidated diagrams.md with all Mermaid charts.
 
 from __future__ import annotations
 
-import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from . import context_map, flow_trace, attack_tree, attack_paths, hypotheses
+from core.json import load_json as _load_json
+
+from . import context_map, flow_trace, attack_tree, attack_paths, hypotheses, findings_summary
 
 
 _FLOW_TRACE_GLOB = "flow-trace-*.json"
@@ -21,13 +22,6 @@ def _section(title: str, body: str, level: int = 2) -> str:
     return f"{heading} {title}\n\n{body}\n"
 
 
-def _load_json(path: Path) -> Any:
-    try:
-        return json.loads(path.read_text())
-    except Exception:
-        return None
-
-
 def render_directory(out_dir: Path, target: Optional[str] = None) -> str:
     out_dir = Path(out_dir)
     sections: list[str] = []
@@ -35,6 +29,31 @@ def render_directory(out_dir: Path, target: Optional[str] = None) -> str:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     target_str = f" for `{target}`" if target else ""
     sections.append(f"# Security Diagrams{target_str}\n\n_Generated {now}_\n")
+
+    # --- Findings summary pies (exec summary, shown first) ---
+    findings_path = out_dir / "findings.json"
+    orch_path_early = out_dir / "orchestrated_report.json"
+    summary_findings = None
+    if findings_path.exists():
+        fdata = _load_json(findings_path)
+        if fdata and isinstance(fdata, dict):
+            summary_findings = fdata.get("findings", [])
+    elif orch_path_early.exists():
+        odata = _load_json(orch_path_early)
+        if odata and isinstance(odata, dict):
+            summary_findings = [r for r in odata.get("results", []) if "is_true_positive" in r]
+
+    if summary_findings and len(summary_findings) >= 2:
+        try:
+            verdict = findings_summary.generate_verdict_pie(summary_findings)
+            vtype = findings_summary.generate_type_pie(summary_findings)
+            body = (
+                f"```mermaid\n{verdict}\n```\n\n"
+                f"```mermaid\n{vtype}\n```"
+            )
+            sections.append(_section("Findings Summary", body))
+        except Exception as exc:
+            sections.append(_section("Findings Summary", f"> Could not render: {exc}"))
 
     # --- Context map / attack surface ---
     for fname, title in [
@@ -45,7 +64,9 @@ def render_directory(out_dir: Path, target: Optional[str] = None) -> str:
         if not fpath.exists():
             continue
         try:
-            data = json.loads(fpath.read_text())
+            data = _load_json(fpath)
+            if data is None:
+                raise ValueError("failed to parse JSON")
             diagram = context_map.generate(data)
             body = f"_Source: `{fname}`_\n\n```mermaid\n{diagram}\n```"
             sections.append(_section(title, body))
@@ -58,7 +79,9 @@ def render_directory(out_dir: Path, target: Optional[str] = None) -> str:
         trace_sections: list[str] = []
         for tf in trace_files:
             try:
-                data = json.loads(tf.read_text())
+                data = _load_json(tf)
+                if data is None:
+                    raise ValueError("failed to parse JSON")
                 trace_id = data.get("id", tf.stem)
                 name = data.get("name", trace_id)
                 diagram = flow_trace.generate(data)
@@ -72,7 +95,9 @@ def render_directory(out_dir: Path, target: Optional[str] = None) -> str:
     tree_path = out_dir / "attack-tree.json"
     if tree_path.exists():
         try:
-            data = json.loads(tree_path.read_text())
+            data = _load_json(tree_path)
+            if data is None:
+                raise ValueError("failed to parse JSON")
 
             # Load companion files for cross-referencing
             ap_data = _load_optional_list(out_dir / "attack-paths.json")
@@ -97,7 +122,9 @@ def render_directory(out_dir: Path, target: Optional[str] = None) -> str:
     hyp_path = out_dir / "hypotheses.json"
     if hyp_path.exists():
         try:
-            raw = json.loads(hyp_path.read_text())
+            raw = _load_json(hyp_path)
+            if raw is None:
+                raise ValueError("failed to parse JSON")
             hyp_list = raw if isinstance(raw, list) else raw.get("hypotheses", [])
             if hyp_list:
                 diagram = hypotheses.generate(hyp_list)
@@ -110,7 +137,9 @@ def render_directory(out_dir: Path, target: Optional[str] = None) -> str:
     paths_path = out_dir / "attack-paths.json"
     if paths_path.exists():
         try:
-            data = json.loads(paths_path.read_text())
+            data = _load_json(paths_path)
+            if data is None:
+                raise ValueError("failed to parse JSON")
             if isinstance(data, dict):
                 data = data.get("paths") or data.get("attack_paths") or next(iter(data.values()), [])
             if isinstance(data, list) and data:
@@ -131,32 +160,26 @@ def _load_optional_list(path: Path) -> list | None:
     Handles both bare lists ([...]) and single-key dict envelopes ({"paths": [...]}).
     Returns None if the file is missing, unreadable, or no list can be found.
     """
-    if not path.exists():
+    data = _load_json(path)
+    if data is None:
         return None
-    try:
-        data = json.loads(path.read_text())
-        if isinstance(data, list):
-            return data
-        if isinstance(data, dict):
-            for v in data.values():
-                if isinstance(v, list):
-                    return v
-        return None
-    except Exception:
-        return None
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        for v in data.values():
+            if isinstance(v, list):
+                return v
+    return None
 
 
 def _load_disproven(path: Path) -> list | None:
     """Load disproven.json,unwraps the {'disproven': [...]} envelope."""
-    if not path.exists():
+    data = _load_json(path)
+    if data is None:
         return None
-    try:
-        data = json.loads(path.read_text())
-        if isinstance(data, dict):
-            return data.get("disproven", [])
-        return data if isinstance(data, list) else None
-    except Exception:
-        return None
+    if isinstance(data, dict):
+        return data.get("disproven", [])
+    return data if isinstance(data, list) else None
 
 
 def render_and_write(out_dir: Path, target: Optional[str] = None) -> Path:

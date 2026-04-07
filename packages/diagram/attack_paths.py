@@ -7,21 +7,11 @@ proximity score, and any blockers. WIP: we may want to add more details, e.g. sh
 
 from __future__ import annotations
 
-import json
+from core.json import load_json
 from pathlib import Path
 from typing import Any
 
-
-def _sanitize(text: str) -> str:
-    return (
-        str(text)
-        .replace('"', "'")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace("{", "(")
-        .replace("}", ")")
-        .replace("\n", " ")
-    )
+from .sanitize import sanitize as _sanitize
 
 
 _PROXIMITY_LABEL = {
@@ -133,7 +123,9 @@ def generate(data: list[dict[str, Any]]) -> str:
 
 
 def generate_from_file(path: Path) -> str:
-    data = json.loads(path.read_text())
+    data = load_json(path)
+    if data is None:
+        raise ValueError(f"Failed to load {path}")
     if isinstance(data, dict):
         # Some files wrap array in a key
         data = data.get("paths", data.get("attack_paths", list(data.values())[0] if data else []))
